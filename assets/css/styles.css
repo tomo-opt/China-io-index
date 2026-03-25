@@ -61,3 +61,45 @@ body { margin: 0; font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif; co
   .drawer { width: 100%; }
   .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.map-image-stage{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+#chinaMapImg{
+  width: 100%;
+  height: 100%;
+  object-fit: contain;   /* 防止变形 */
+  display:block;
+  background:#eef4fc;
+}
+.city-layer{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+}
+.city-dot{
+  position:absolute;
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  background:#ff4d4f;
+  border:2px solid #fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.25);
+  transform: translate(-50%, -50%);
+  pointer-events:auto;
+  cursor:pointer;
+}
+.city-dot:hover{ transform: translate(-50%, -50%) scale(1.15); }
+.city-dot .count{
+  position:absolute;
+  left:14px; top:-6px;
+  background:#fff;
+  border:1px solid #d7dfeb;
+  border-radius:10px;
+  padding:0 6px;
+  font-size:12px;
+  color:#223;
+  line-height:18px;
+}
