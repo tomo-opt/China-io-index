@@ -3,7 +3,14 @@ const CSV_PATHS = [
   "data/新的国际组织全量分类表_新版_enriched_20260325_141013.csv",
 ];
 
-const map = echarts.init(document.getElementById("map"));
+const MAP_GEOJSON_PATHS = [
+  "assets/data/china-100000_full.json",
+  "https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json",
+  "https://fastly.jsdelivr.net/npm/echarts@5/map/json/china.json",
+  "https://unpkg.com/echarts@5/map/json/china.json",
+];
+
+let map = null;
 
 const ui = {
   searchInput: document.getElementById("searchInput"),
@@ -25,6 +32,19 @@ const cityCoord = {
   西安市: [108.9398, 34.3416], 青岛市: [120.3826, 36.0671], 厦门市: [118.0894, 24.4798], 昆明市: [102.8329, 24.8801],
   天津市: [117.2008, 39.0842], 重庆市: [106.5516, 29.5630], 苏州市: [120.6196, 31.2990], 宁波市: [121.5503, 29.8746],
 };
+
+function setMapStatus(message) {
+  const el = document.getElementById("mapStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.remove("hidden");
+}
+
+function clearMapStatus() {
+  const el = document.getElementById("mapStatus");
+  if (!el) return;
+  el.classList.add("hidden");
+}
 
 function getField(row, keys) {
   for (const k of keys) {
@@ -81,6 +101,24 @@ function renderCard(item) {
   return div;
 }
 
+async function ensureChinaMap() {
+  if (echarts.getMap("china")) return true;
+
+  for (const path of MAP_GEOJSON_PATHS) {
+    try {
+      const res = await fetch(path, { cache: "no-store" });
+      if (!res.ok) continue;
+      const geojson = await res.json();
+      if (!geojson || !geojson.features?.length) continue;
+      echarts.registerMap("china", geojson);
+      return true;
+    } catch (_) {
+      // try next source
+    }
+  }
+  return false;
+}
+
 function updateFilterOptions() {
   const sets = {
     attrFilter: new Set(records.map(r => r.attr).filter(Boolean)),
@@ -127,25 +165,27 @@ function applyFilters() {
     })
     .filter(Boolean);
 
-  map.setOption({
-    backgroundColor: "#eef4fc",
-    tooltip: { formatter: p => `${p.name}<br/>机构数：${p.value?.[2] || 0}` },
-    geo: {
-      map: "china",
-      roam: true,
-      label: { show: false },
-      itemStyle: { areaColor: "#dce8f7", borderColor: "#8ea9cf" },
-      emphasis: { itemStyle: { areaColor: "#c6daf6" } },
-    },
-    series: [{
-      type: "scatter",
-      coordinateSystem: "geo",
-      symbolSize: val => Math.min(28, 8 + val[2] * 2),
-      itemStyle: { color: "#ff5d5d", shadowBlur: 10, shadowColor: "rgba(0,0,0,.2)" },
-      emphasis: { itemStyle: { color: "#ff2f2f" } },
-      data: scatterData,
-    }],
-  });
+  if (map) {
+    map.setOption({
+      backgroundColor: "#eef4fc",
+      tooltip: { formatter: p => `${p.name}<br/>机构数：${p.value?.[2] || 0}` },
+      geo: {
+        map: "china",
+        roam: true,
+        label: { show: false },
+        itemStyle: { areaColor: "#dce8f7", borderColor: "#8ea9cf" },
+        emphasis: { itemStyle: { areaColor: "#c6daf6" } },
+      },
+      series: [{
+        type: "scatter",
+        coordinateSystem: "geo",
+        symbolSize: val => Math.min(28, 8 + val[2] * 2),
+        itemStyle: { color: "#ff5d5d", shadowBlur: 10, shadowColor: "rgba(0,0,0,.2)" },
+        emphasis: { itemStyle: { color: "#ff2f2f" } },
+        data: scatterData,
+      }],
+    });
+  }
 
   renderSearchResults(q ? filtered.slice(0, 20) : []);
 }
@@ -175,13 +215,15 @@ function bindEvents() {
     applyFilters();
   });
   document.getElementById("drawerClose").addEventListener("click", () => ui.drawer.classList.remove("open"));
-  map.on("click", p => {
-    if (p.seriesType !== "scatter") return;
-    const city = p.name;
-    const list = filtered.filter(r => r.location.includes(city));
-    openDrawer(city, list);
-  });
-  window.addEventListener("resize", () => map.resize());
+  if (map) {
+    map.on("click", p => {
+      if (p.seriesType !== "scatter") return;
+      const city = p.name;
+      const list = filtered.filter(r => r.location.includes(city));
+      openDrawer(city, list);
+    });
+    window.addEventListener("resize", () => map.resize());
+  }
 }
 
 function parseCsv(path) {
@@ -215,4 +257,16 @@ async function loadData() {
   alert("数据文件加载失败。请确认仓库根目录或 data 目录中存在 CSV 文件，且编码为 UTF-8。");
 }
 
-loadData();
+async function init() {
+  map = echarts.init(document.getElementById("map"));
+  const ok = await ensureChinaMap();
+  if (!ok) {
+    setMapStatus("地图底图加载失败：在 assets/data/china-100000_full.json 放置中国 GeoJSON，或检查网络/CDN可访问性。");
+  } else {
+    clearMapStatus();
+  }
+
+  await loadData();
+}
+
+init();
