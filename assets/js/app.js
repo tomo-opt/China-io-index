@@ -11,6 +11,7 @@ const MAP_GEOJSON_PATHS = [
 ];
 
 let map = null;
+let mapReady = false;
 
 const ui = {
   searchInput: document.getElementById("searchInput"),
@@ -22,15 +23,50 @@ const ui = {
   cardsContainer: document.getElementById("cardsContainer"),
   drawer: document.getElementById("drawer"),
   drawerTitle: document.getElementById("drawerTitle"),
+  cityLayer: document.getElementById("cityLayer"), // 图片地图模式用
 };
 
 let records = [];
 let filtered = [];
-const cityCoord = {
-  北京市: [116.4074, 39.9042], 上海市: [121.4737, 31.2304], 广州市: [113.2644, 23.1291], 深圳市: [114.0579, 22.5431],
-  南京市: [118.7969, 32.0603], 杭州市: [120.1551, 30.2741], 成都市: [104.0665, 30.5728], 武汉市: [114.3054, 30.5931],
-  西安市: [108.9398, 34.3416], 青岛市: [120.3826, 36.0671], 厦门市: [118.0894, 24.4798], 昆明市: [102.8329, 24.8801],
-  天津市: [117.2008, 39.0842], 重庆市: [106.5516, 29.5630], 苏州市: [120.6196, 31.2990], 宁波市: [121.5503, 29.8746],
+
+/** 图片底图模式：归一化锚点 */
+const CITY_ANCHORS = {
+  "北京市": { x: 0.63, y: 0.27 },
+  "上海市": { x: 0.72, y: 0.46 },
+  "广州市": { x: 0.62, y: 0.69 },
+  "深圳市": { x: 0.63, y: 0.71 },
+  "杭州市": { x: 0.71, y: 0.49 },
+  "南京市": { x: 0.69, y: 0.44 },
+  "武汉市": { x: 0.60, y: 0.50 },
+  "成都市": { x: 0.46, y: 0.52 },
+  "重庆市": { x: 0.50, y: 0.56 },
+  "西安市": { x: 0.52, y: 0.41 },
+  "天津市": { x: 0.65, y: 0.30 },
+  "青岛市": { x: 0.70, y: 0.35 },
+  "厦门市": { x: 0.69, y: 0.63 },
+  "昆明市": { x: 0.43, y: 0.69 },
+  "宁波市": { x: 0.73, y: 0.51 },
+  "苏州市": { x: 0.71, y: 0.46 }
+};
+
+/** ECharts模式：经纬度点位（避免 cityCoord 未定义） */
+const CITY_COORD = {
+  "北京市": [116.4074, 39.9042],
+  "上海市": [121.4737, 31.2304],
+  "广州市": [113.2644, 23.1291],
+  "深圳市": [114.0579, 22.5431],
+  "杭州市": [120.1551, 30.2741],
+  "南京市": [118.7969, 32.0603],
+  "武汉市": [114.3054, 30.5931],
+  "成都市": [104.0665, 30.5728],
+  "重庆市": [106.5516, 29.563],
+  "西安市": [108.9398, 34.3416],
+  "天津市": [117.2008, 39.0842],
+  "青岛市": [120.3826, 36.0671],
+  "厦门市": [118.0894, 24.4798],
+  "昆明市": [102.8329, 24.8801],
+  "宁波市": [121.5503, 29.8746],
+  "苏州市": [120.6196, 31.299]
 };
 
 function setMapStatus(message) {
@@ -68,6 +104,44 @@ function normalize(row) {
   };
 }
 
+function normalizeCityName(location = "") {
+  const t = String(location).trim();
+
+  // 优先抓 “xx市”
+  const m = t.match(/([^\s省自治区特别行政区]+市)/);
+  if (m) return m[1];
+
+  // 常见别名兜底
+  if (t.includes("北京")) return "北京市";
+  if (t.includes("上海")) return "上海市";
+  if (t.includes("广州")) return "广州市";
+  if (t.includes("深圳")) return "深圳市";
+  if (t.includes("杭州")) return "杭州市";
+  if (t.includes("南京")) return "南京市";
+  if (t.includes("武汉")) return "武汉市";
+  if (t.includes("成都")) return "成都市";
+  if (t.includes("重庆")) return "重庆市";
+  if (t.includes("西安")) return "西安市";
+  if (t.includes("天津")) return "天津市";
+  if (t.includes("青岛")) return "青岛市";
+  if (t.includes("厦门")) return "厦门市";
+  if (t.includes("昆明")) return "昆明市";
+  if (t.includes("宁波")) return "宁波市";
+  if (t.includes("苏州")) return "苏州市";
+
+  return t || "未知";
+}
+
+function groupByCity(list) {
+  const grouped = {};
+  list.forEach((r) => {
+    const city = normalizeCityName(r.location);
+    if (!grouped[city]) grouped[city] = [];
+    grouped[city].push(r);
+  });
+  return grouped;
+}
+
 function cardColor(item) {
   const x = `${item.attr}-${item.category1}`;
   let hash = 0;
@@ -101,7 +175,46 @@ function renderCard(item) {
   return div;
 }
 
+function openDrawer(city, list) {
+  ui.drawer.classList.add("open");
+  ui.drawerTitle.textContent = `${city}（${list.length}个机构）`;
+  ui.cardsContainer.innerHTML = "";
+  list.forEach((item) => ui.cardsContainer.appendChild(renderCard(item)));
+}
+
+function renderSearchResults(list) {
+  ui.searchResults.innerHTML = "";
+  if (!list.length) {
+    ui.searchResults.classList.add("hidden");
+    return;
+  }
+  ui.searchResults.classList.remove("hidden");
+  list.forEach((item) => ui.searchResults.appendChild(renderCard(item)));
+}
+
+function renderCityDots(grouped) {
+  if (!ui.cityLayer) return;
+  ui.cityLayer.innerHTML = "";
+
+  Object.entries(grouped).forEach(([city, rows]) => {
+    const anchor = CITY_ANCHORS[city];
+    if (!anchor) return; // 无锚点先跳过
+
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "city-dot";
+    dot.style.left = `${anchor.x * 100}%`;
+    dot.style.top = `${anchor.y * 100}%`;
+    dot.title = `${city}（${rows.length}）`;
+    dot.innerHTML = `<span class="count">${rows.length}</span>`;
+    dot.addEventListener("click", () => openDrawer(city, rows));
+
+    ui.cityLayer.appendChild(dot);
+  });
+}
+
 async function ensureChinaMap() {
+  if (typeof echarts === "undefined") return false;
   if (echarts.getMap("china")) return true;
 
   for (const path of MAP_GEOJSON_PATHS) {
@@ -119,17 +232,57 @@ async function ensureChinaMap() {
   return false;
 }
 
+function renderEchartsMap(grouped) {
+  if (!mapReady || !map) return;
+
+  const scatterData = Object.entries(grouped)
+    .map(([city, list]) => {
+      const coord = CITY_COORD[city];
+      if (!coord) return null;
+      return { name: city, value: [...coord, list.length], _list: list };
+    })
+    .filter(Boolean);
+
+  map.setOption({
+    backgroundColor: "#eef4fc",
+    tooltip: {
+      formatter: (p) => `${p.name}<br/>机构数：${p.value?.[2] || 0}`,
+    },
+    geo: {
+      map: "china",
+      roam: true,
+      label: { show: false },
+      itemStyle: { areaColor: "#dce8f7", borderColor: "#8ea9cf" },
+      emphasis: { itemStyle: { areaColor: "#c6daf6" } },
+    },
+    series: [
+      {
+        type: "scatter",
+        coordinateSystem: "geo",
+        symbolSize: (val) => Math.min(28, 8 + val[2] * 2),
+        itemStyle: { color: "#ff5d5d", shadowBlur: 10, shadowColor: "rgba(0,0,0,.2)" },
+        emphasis: { itemStyle: { color: "#ff2f2f" } },
+        data: scatterData,
+      },
+    ],
+  });
+}
+
 function updateFilterOptions() {
   const sets = {
-    attrFilter: new Set(records.map(r => r.attr).filter(Boolean)),
-    categoryFilter: new Set(records.map(r => r.category1).filter(Boolean)),
-    yearFilter: new Set(records.map(r => r.year).filter(Boolean)),
-    cityFilter: new Set(records.map(r => r.location).filter(Boolean)),
+    attrFilter: new Set(records.map((r) => r.attr).filter(Boolean)),
+    categoryFilter: new Set(records.map((r) => r.category1).filter(Boolean)),
+    yearFilter: new Set(records.map((r) => r.year).filter(Boolean)),
+    cityFilter: new Set(records.map((r) => r.location).filter(Boolean)),
   };
+
   Object.entries(sets).forEach(([id, set]) => {
     const sel = document.getElementById(id);
-    [...set].sort((a, b) => a.localeCompare(b, "zh-Hans-CN")).forEach(v => {
-      const op = document.createElement("option"); op.value = v; op.textContent = v; sel.appendChild(op);
+    [...set].sort((a, b) => a.localeCompare(b, "zh-Hans-CN")).forEach((v) => {
+      const op = document.createElement("option");
+      op.value = v;
+      op.textContent = v;
+      sel.appendChild(op);
     });
   });
 }
@@ -142,86 +295,50 @@ function matchesSearch(item, q) {
 
 function applyFilters() {
   const q = ui.searchInput.value.trim();
-  filtered = records.filter(r =>
-    (!ui.attrFilter.value || r.attr === ui.attrFilter.value) &&
-    (!ui.categoryFilter.value || r.category1 === ui.categoryFilter.value) &&
-    (!ui.yearFilter.value || r.year === ui.yearFilter.value) &&
-    (!ui.cityFilter.value || r.location === ui.cityFilter.value) &&
-    matchesSearch(r, q)
+
+  filtered = records.filter(
+    (r) =>
+      (!ui.attrFilter.value || r.attr === ui.attrFilter.value) &&
+      (!ui.categoryFilter.value || r.category1 === ui.categoryFilter.value) &&
+      (!ui.yearFilter.value || r.year === ui.yearFilter.value) &&
+      (!ui.cityFilter.value || r.location === ui.cityFilter.value) &&
+      matchesSearch(r, q)
   );
 
-  const grouped = {};
-  filtered.forEach(r => {
-    const city = (r.location.match(/[^省市自治区特别行政区]+市/) || [r.location])[0] || "未知";
-    if (!grouped[city]) grouped[city] = [];
-    grouped[city].push(r);
-  });
+  const grouped = groupByCity(filtered);
 
-  const scatterData = Object.entries(grouped)
-    .map(([city, list]) => {
-      const coord = cityCoord[city];
-      if (!coord) return null;
-      return { name: city, value: [...coord, list.length], _list: list };
-    })
-    .filter(Boolean);
+  // 图片底图模式
+  renderCityDots(grouped);
 
-  if (map) {
-    map.setOption({
-      backgroundColor: "#eef4fc",
-      tooltip: { formatter: p => `${p.name}<br/>机构数：${p.value?.[2] || 0}` },
-      geo: {
-        map: "china",
-        roam: true,
-        label: { show: false },
-        itemStyle: { areaColor: "#dce8f7", borderColor: "#8ea9cf" },
-        emphasis: { itemStyle: { areaColor: "#c6daf6" } },
-      },
-      series: [{
-        type: "scatter",
-        coordinateSystem: "geo",
-        symbolSize: val => Math.min(28, 8 + val[2] * 2),
-        itemStyle: { color: "#ff5d5d", shadowBlur: 10, shadowColor: "rgba(0,0,0,.2)" },
-        emphasis: { itemStyle: { color: "#ff2f2f" } },
-        data: scatterData,
-      }],
-    });
-  }
+  // ECharts地图模式（兜底）
+  renderEchartsMap(grouped);
 
+  // 搜索浮层
   renderSearchResults(q ? filtered.slice(0, 20) : []);
 }
 
-function renderSearchResults(list) {
-  ui.searchResults.innerHTML = "";
-  if (!list.length) {
-    ui.searchResults.classList.add("hidden");
-    return;
-  }
-  ui.searchResults.classList.remove("hidden");
-  list.forEach(item => ui.searchResults.appendChild(renderCard(item)));
-}
-
-function openDrawer(city, list) {
-  ui.drawer.classList.add("open");
-  ui.drawerTitle.textContent = `${city}（${list.length}个机构）`;
-  ui.cardsContainer.innerHTML = "";
-  list.forEach(item => ui.cardsContainer.appendChild(renderCard(item)));
-}
-
 function bindEvents() {
-  [ui.searchInput, ui.attrFilter, ui.categoryFilter, ui.yearFilter, ui.cityFilter].forEach(el => el.addEventListener("input", applyFilters));
+  [ui.searchInput, ui.attrFilter, ui.categoryFilter, ui.yearFilter, ui.cityFilter].forEach((el) =>
+    el.addEventListener("input", applyFilters)
+  );
+
   document.getElementById("resetBtn").addEventListener("click", () => {
     ui.searchInput.value = "";
-    [ui.attrFilter, ui.categoryFilter, ui.yearFilter, ui.cityFilter].forEach(sel => (sel.value = ""));
+    [ui.attrFilter, ui.categoryFilter, ui.yearFilter, ui.cityFilter].forEach((sel) => (sel.value = ""));
     applyFilters();
   });
+
   document.getElementById("drawerClose").addEventListener("click", () => ui.drawer.classList.remove("open"));
+
+  // 仅ECharts模式绑定地图点击
   if (map) {
-    map.on("click", p => {
+    map.on("click", (p) => {
       if (p.seriesType !== "scatter") return;
       const city = p.name;
-      const list = filtered.filter(r => r.location.includes(city));
-      openDrawer(city, list);
+      const list = filtered.filter((r) => normalizeCityName(r.location) === city);
+      if (list.length) openDrawer(city, list);
     });
+
     window.addEventListener("resize", () => map.resize());
   }
 }
@@ -243,7 +360,7 @@ async function loadData() {
     try {
       const res = await parseCsv(path);
       if (res?.data?.length) {
-        records = res.data.map(normalize).filter(x => x.cn || x.en);
+        records = res.data.map(normalize).filter((x) => x.cn || x.en);
         updateFilterOptions();
         bindEvents();
         applyFilters();
@@ -258,11 +375,21 @@ async function loadData() {
 }
 
 async function init() {
-  map = echarts.init(document.getElementById("map"));
-  const ok = await ensureChinaMap();
-  if (!ok) {
-    setMapStatus("地图底图加载失败：在 assets/data/china-100000_full.json 放置中国 GeoJSON，或检查网络/CDN可访问性。");
+  const mapEl = document.getElementById("map");
+
+  if (mapEl && typeof echarts !== "undefined") {
+    map = echarts.init(mapEl);
+    const ok = await ensureChinaMap();
+    mapReady = ok;
+
+    if (!ok && !ui.cityLayer) {
+      setMapStatus("地图底图加载失败：在 assets/data/china-100000_full.json 放置中国 GeoJSON，或检查网络/CDN可访问性。");
+    } else {
+      clearMapStatus();
+    }
   } else {
+    // 图片底图模式不依赖 echarts
+    mapReady = false;
     clearMapStatus();
   }
 
