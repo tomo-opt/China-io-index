@@ -362,65 +362,54 @@ function applyFilters() {
   renderSearchResults(q ? filtered.slice(0, 20) : []);
 }
 
-function bindAnchorCaptureTool() {
-  // 仅图片底图模式启用：按住 Alt 点击地图，打印像素与归一化坐标
-  if (!ui.chinaMapImg) return;
-  ui.chinaMapImg.addEventListener("click", (e) => {
-    if (!e.altKey) return; // 防误触：按住 Alt 再点
-    const rect = ui.chinaMapImg.getBoundingClientRect();
-    const px = e.clientX - rect.left;
-    const py = e.clientY - rect.top;
-    const nx = px / rect.width;
-    const ny = py / rect.height;
+function getImageRenderBox(imgEl) {
+  const rect = imgEl.getBoundingClientRect();
+  const naturalW = imgEl.naturalWidth;
+  const naturalH = imgEl.naturalHeight;
+  if (!naturalW || !naturalH) return null;
 
-    const info = `xPixel=${px.toFixed(1)}, yPixel=${py.toFixed(1)}, xNorm=${nx.toFixed(4)}, yNorm=${ny.toFixed(4)}`;
-    console.log("[AnchorCapture]", info);
-    try {
-      navigator.clipboard.writeText(info);
-      setMapStatus(`已复制坐标：${info}（可直接粘贴到 CITY_ANCHORS）`);
-      setTimeout(clearMapStatus, 2200);
-    } catch {
-      setMapStatus(`坐标：${info}`);
-      setTimeout(clearMapStatus, 2200);
-    }
-  });
-}
+  const boxW = rect.width;
+  const boxH = rect.height;
+  const imgRatio = naturalW / naturalH;
+  const boxRatio = boxW / boxH;
 
-function bindEvents() {
-  [ui.searchInput, ui.attrFilter, ui.categoryFilter, ui.yearFilter, ui.cityFilter].forEach((el) =>
-    el.addEventListener("input", applyFilters)
-  );
-
-  document.getElementById("resetBtn").addEventListener("click", () => {
-    ui.searchInput.value = "";
-    [ui.attrFilter, ui.categoryFilter, ui.yearFilter, ui.cityFilter].forEach((sel) => (sel.value = ""));
-    applyFilters();
-  });
-
-  document.getElementById("drawerClose").addEventListener("click", () => ui.drawer.classList.remove("open"));
-
-  // ECharts模式点击
-  if (map) {
-    map.off("click");
-    map.on("click", (p) => {
-      if (p.seriesType !== "scatter") return;
-      const city = p.name;
-      const list = filtered.filter((r) => normalizeCityName(r.location) === city);
-      if (list.length) openDrawer(city, list);
-    });
-
-    // 缩放时刷新阈值表现
-    map.off("georoam");
-    map.on("georoam", () => {
-      const opt = map.getOption();
-      currentZoom = opt?.geo?.[0]?.zoom || 1;
-      applyFilters();
-    });
-
-    window.addEventListener("resize", () => map.resize());
+  let drawW, drawH, offsetX, offsetY;
+  if (boxRatio > imgRatio) {
+    // 盒子更宽，图片高度撑满
+    drawH = boxH;
+    drawW = drawH * imgRatio;
+    offsetX = (boxW - drawW) / 2;
+    offsetY = 0;
+  } else {
+    // 盒子更高，图片宽度撑满
+    drawW = boxW;
+    drawH = drawW / imgRatio;
+    offsetX = 0;
+    offsetY = (boxH - drawH) / 2;
   }
 
-  bindAnchorCaptureTool();
+  return { rect, naturalW, naturalH, drawW, drawH, offsetX, offsetY };
+}
+
+function captureAnchorFromClick(e, imgEl) {
+  const box = getImageRenderBox(imgEl);
+  if (!box) return null;
+
+  const xInBox = e.clientX - box.rect.left - box.offsetX;
+  const yInBox = e.clientY - box.rect.top - box.offsetY;
+
+  // 点在图片外（点击到留白）直接忽略
+  if (xInBox < 0 || yInBox < 0 || xInBox > box.drawW || yInBox > box.drawH) return null;
+
+  // 归一化（0~1）
+  const xNorm = xInBox / box.drawW;
+  const yNorm = yInBox / box.drawH;
+
+  // 原图像素坐标（稳定主坐标）
+  const xPixel = xNorm * box.naturalW;
+  const yPixel = yNorm * box.naturalH;
+
+  return { xNorm, yNorm, xPixel, yPixel };
 }
 
 function parseCsv(path) {
@@ -435,6 +424,61 @@ function parseCsv(path) {
   });
 }
 
+function bindEvents() {
+  // 防止重复绑定（非常重要）
+  if (window.__ioMapEventsBound) return;
+  window.__ioMapEventsBound = true;
+
+  [ui.searchInput, ui.attrFilter, ui.categoryFilter, ui.yearFilter, ui.cityFilter].forEach((el) =>
+    el.addEventListener("input", applyFilters)
+  );
+
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    ui.searchInput.value = "";
+    [ui.attrFilter, ui.categoryFilter, ui.yearFilter, ui.cityFilter].forEach((sel) => (sel.value = ""));
+    applyFilters();
+  });
+
+  document.getElementById("drawerClose").addEventListener("click", () => {
+    ui.drawer.classList.remove("open");
+  });
+
+  // 仅 ECharts 模式绑定地图交互
+  if (map) {
+    map.off("click");
+    map.on("click", (p) => {
+      if (p.seriesType !== "scatter") return;
+      const city = p.name;
+      const list = filtered.filter((r) => normalizeCityName(r.location) === city);
+      if (list.length) openDrawer(city, list);
+    });
+
+    map.off("georoam");
+    map.on("georoam", () => {
+      const opt = map.getOption();
+      currentZoom = opt?.geo?.[0]?.zoom || 1;
+      applyFilters();
+    });
+
+    window.addEventListener("resize", () => map.resize());
+  }
+
+  // Alt 取点工具（你已有的话会使用最新逻辑）
+  if (typeof bindAnchorCaptureTool === "function") {
+    bindAnchorCaptureTool();
+  }
+
+  // C 键切换“校准模式”
+  if (!window.__calibrationHotkeyBound) {
+    document.addEventListener("keydown", (e) => {
+      if (e.key && e.key.toLowerCase() === "c") {
+        document.body.classList.toggle("calibration-mode");
+      }
+    });
+    window.__calibrationHotkeyBound = true;
+  }
+}
+
 async function loadData() {
   for (const path of CSV_PATHS) {
     try {
@@ -442,7 +486,7 @@ async function loadData() {
       if (res?.data?.length) {
         records = res.data.map(normalize).filter((x) => x.cn || x.en);
         updateFilterOptions();
-        bindEvents();
+        bindEvents();   // 只会绑定一次（上面有 guard）
         applyFilters();
         return;
       }
