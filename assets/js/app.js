@@ -395,15 +395,17 @@ function bindImageMapInteractions() {
     { passive: false }
   );
 
-  stage.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0) return;
-    if (e.target.closest(".city-dot")) return;
+stage.addEventListener("pointerdown", (e) => {
+  if (e.button !== 0) return;
+  if (e.altKey) return;
+  if (e.target.closest(".city-dot")) return;
 
-    imageView.dragging = true;
-    imageView.startX = e.clientX - imageView.x;
-    imageView.startY = e.clientY - imageView.y;
-    stage.classList.add("is-dragging");
-  });
+  imageView.dragging = true;
+  imageView.startX = e.clientX - imageView.x;
+  imageView.startY = e.clientY - imageView.y;
+
+  stage.classList.add("is-dragging");
+});
 
   window.addEventListener("pointermove", (e) => {
     if (!imageView.dragging) return;
@@ -595,6 +597,111 @@ function captureAnchorFromClick(e, imgEl) {
   const yPixel = yNorm * box.naturalH;
 
   return { xNorm, yNorm, xPixel, yPixel };
+}
+
+function showAnchorCaptureToast(message, isError = false) {
+  let toast = document.getElementById("anchorCaptureToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "anchorCaptureToast";
+    toast.style.position = "fixed";
+    toast.style.right = "16px";
+    toast.style.bottom = "16px";
+    toast.style.zIndex = "9999";
+    toast.style.maxWidth = "420px";
+    toast.style.padding = "10px 12px";
+    toast.style.borderRadius = "10px";
+    toast.style.boxShadow = "0 8px 24px rgba(0,0,0,.12)";
+    toast.style.fontSize = "13px";
+    toast.style.lineHeight = "1.5";
+    toast.style.background = "rgba(255,255,255,.96)";
+    toast.style.border = "1px solid #d7dfeb";
+    toast.style.color = "#223";
+    toast.style.wordBreak = "break-word";
+    toast.style.backdropFilter = "blur(6px)";
+    toast.style.display = "none";
+    document.body.appendChild(toast);
+  }
+
+  toast.textContent = message;
+  toast.style.display = "block";
+  toast.style.borderColor = isError ? "#ef9a9a" : "#d7dfeb";
+  toast.style.color = isError ? "#9a2d2d" : "#223";
+
+  clearTimeout(showAnchorCaptureToast._timer);
+  showAnchorCaptureToast._timer = setTimeout(() => {
+    toast.style.display = "none";
+  }, 2600);
+}
+
+async function copyTextSafely(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (_) {}
+
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    ta.style.pointerEvents = "none";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch (_) {
+    return false;
+  }
+}
+
+function bindAnchorCaptureTool() {
+  if (window.__anchorCaptureBound) return;
+  window.__anchorCaptureBound = true;
+
+  const stage = getImageStage();
+  const imgEl = ui.chinaMapImg;
+  if (!stage || !imgEl) return;
+
+  stage.addEventListener(
+    "click",
+    async (e) => {
+      if (!e.altKey) return;
+      if (e.target.closest(".city-dot")) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const point = captureAnchorFromClick(e, imgEl);
+      if (!point) {
+        showAnchorCaptureToast("取样失败：请 Alt+点击地图图片本体，不要点到留白区域。", true);
+        return;
+      }
+
+      const anchorText = `{ x: ${point.xNorm.toFixed(4)}, y: ${point.yNorm.toFixed(4)} }`;
+      const debugText = `${anchorText}  // px: (${Math.round(point.xPixel)}, ${Math.round(point.yPixel)})`;
+
+      const copied = await copyTextSafely(anchorText);
+
+      console.log("[Anchor Capture]", {
+        xNorm: Number(point.xNorm.toFixed(6)),
+        yNorm: Number(point.yNorm.toFixed(6)),
+        xPixel: Math.round(point.xPixel),
+        yPixel: Math.round(point.yPixel),
+      });
+
+      showAnchorCaptureToast(
+        copied
+          ? `已复制坐标：${debugText}`
+          : `坐标已生成（复制失败，请手动从控制台复制）：${debugText}`
+      );
+    },
+    true
+  );
 }
 
 function parseCsv(path) {
