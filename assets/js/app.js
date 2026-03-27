@@ -375,7 +375,185 @@ function getDisplayImageBox() {
   };
 }
 
-/** 图片底图点位：点与标签不再跟整层一起缩放，改为重算位置 */
+function rectsOverlap(a, b, gap = 6) {
+  return !(
+    a.right + gap <= b.left ||
+    a.left >= b.right + gap ||
+    a.bottom + gap <= b.top ||
+    a.top >= b.bottom + gap
+  );
+}
+
+function getLabelPreferredDirections(x, y, stageW, stageH) {
+  const leftZone = stageW * 0.35;
+  const rightZone = stageW * 0.65;
+  const topZone = stageH * 0.35;
+  const bottomZone = stageH * 0.65;
+
+  if (x <= leftZone) {
+    return ["right", "bottom-right", "top-right", "bottom", "top", "left", "bottom-left", "top-left"];
+  }
+  if (x >= rightZone) {
+    return ["left", "bottom-left", "top-left", "bottom", "top", "right", "bottom-right", "top-right"];
+  }
+  if (y <= topZone) {
+    return ["bottom", "bottom-right", "bottom-left", "right", "left", "top", "top-right", "top-left"];
+  }
+  if (y >= bottomZone) {
+    return ["top", "top-right", "top-left", "right", "left", "bottom", "bottom-right", "bottom-left"];
+  }
+
+  return ["right", "left", "top", "bottom", "top-right", "bottom-right", "top-left", "bottom-left"];
+}
+
+function getLabelCandidates(x, y, dotSize, labelW, labelH, stageW, stageH) {
+  const r = dotSize / 2;
+  const gap = 10;
+  const margin = 4;
+
+  const raw = [
+    { dir: "right", left: x + r + gap, top: y - labelH / 2 },
+    { dir: "left", left: x - r - gap - labelW, top: y - labelH / 2 },
+    { dir: "top", left: x - labelW / 2, top: y - r - gap - labelH },
+    { dir: "bottom", left: x - labelW / 2, top: y + r + gap },
+    { dir: "top-right", left: x + r + gap, top: y - r - gap - labelH },
+    { dir: "bottom-right", left: x + r + gap, top: y + r + gap },
+    { dir: "top-left", left: x - r - gap - labelW, top: y - r - gap - labelH },
+    { dir: "bottom-left", left: x - r - gap - labelW, top: y + r + gap },
+  ];
+
+  return raw.map((c) => {
+    const left = clamp(c.left, margin, Math.max(margin, stageW - labelW - margin));
+    const top = clamp(c.top, margin, Math.max(margin, stageH - labelH - margin));
+    return {
+      dir: c.dir,
+      left,
+      top,
+      right: left + labelW,
+      bottom: top + labelH,
+    };
+  });
+}
+
+function layoutCityLabels() {
+  if (!ui.cityLayer) return;
+
+  const stage = getImageStage();
+  if (!stage) return;
+
+  const stageW = stage.clientWidth;
+  const stageH = stage.clientHeight;
+
+  const items = [...ui.cityLayer.querySelectorAll(".city-dot")]
+    .map((dot) => {
+      const label = dot.querySelector(".count");
+      if (!label) return null;
+
+      const x = parseFloat(dot.dataset.x || "0");
+      const y = parseFloat(dot.dataset.y || "0");
+      const dotSize = parseFloat(dot.dataset.dotSize || "12");
+      const count = parseInt(dot.dataset.count || "0", 10);
+
+      label.style.left = "0px";
+      label.style.top = "0px";
+      label.style.visibility = "hidden";
+
+      return {
+        dot,
+        label,
+        x,
+        y,
+        dotSize,
+        count,
+        city: dot.dataset.city || "",
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.count - a.count || a.y - b.y);
+
+  const allDotRects = items.map((item) => {
+    const r = item.dotSize / 2 + 4;
+    return {
+      city: item.city,
+      left: item.x - r,
+      top: item.y - r,
+      right: item.x + r,
+      bottom: item.y + r,
+    };
+  });
+
+  const placedLabelRects = [];
+
+  items.forEach((item) => {
+    const { dot, label, x, y, dotSize, city } = item;
+
+    label.style.visibility = "visible";
+    const labelW = label.offsetWidth;
+    const labelH = label.offsetHeight;
+
+    const preferredDirs = getLabelPreferredDirections(x, y, stageW, stageH);
+    const candidates = getLabelCandidates(x, y, dotSize, labelW, labelH, stageW, stageH);
+
+    let chosen = null;
+
+    for (const dir of preferredDirs) {
+      const candidate = candidates.find((c) => c.dir === dir);
+      if (!candidate) continue;
+
+      const collidesWithLabel = placedLabelRects.some((rect) => rectsOverlap(candidate, rect, 8));
+      const collidesWithOtherDots = allDotRects.some(
+        (rect) => rect.city !== city && rectsOverlap(candidate, rect, 4)
+      );
+
+      if (!collidesWithLabel && !collidesWithOtherDots) {
+        chosen = candidate;
+        break;
+      }
+    }
+
+    if (!chosen) {
+      let best = null;
+      let bestScore = Infinity;
+
+      candidates.forEach((candidate) => {
+        let overlapScore = 0;
+
+        placedLabelRects.forEach((rect) => {
+          if (rectsOverlap(candidate, rect, 0)) overlapScore += 1000;
+        });
+
+        allDotRects.forEach((rect) => {
+          if (rect.city !== city && rectsOverlap(candidate, rect, 0)) overlapScore += 600;
+        });
+
+        overlapScore += Math.abs(candidate.left - x) * 0.08 + Math.abs(candidate.top - y) * 0.08;
+
+        if (overlapScore < bestScore) {
+          bestScore = overlapScore;
+          best = candidate;
+        }
+      });
+
+      chosen = best;
+    }
+
+    const buttonLeft = x - dotSize / 2;
+    const buttonTop = y - dotSize / 2;
+
+    label.style.left = `${chosen.left - buttonLeft}px`;
+    label.style.top = `${chosen.top - buttonTop}px`;
+    label.style.visibility = "visible";
+
+    placedLabelRects.push({
+      left: chosen.left,
+      top: chosen.top,
+      right: chosen.right,
+      bottom: chosen.bottom,
+    });
+  });
+}
+
+/** 图片底图点位：点与标签不再跟整层一起缩放，改为重算位置 + 自动避让 */
 function renderCityDots(grouped) {
   if (!ui.cityLayer) return;
   ui.cityLayer.innerHTML = "";
@@ -401,11 +579,18 @@ function renderCityDots(grouped) {
     dot.style.width = `${dotSize}px`;
     dot.style.height = `${dotSize}px`;
     dot.title = `${city}（${count}个机构）`;
+    dot.dataset.city = city;
+    dot.dataset.count = String(count);
+    dot.dataset.x = String(x);
+    dot.dataset.y = String(y);
+    dot.dataset.dotSize = String(dotSize);
     dot.innerHTML = `<span class="count">${city}(${count})</span>`;
     dot.addEventListener("click", () => openDrawer(city, rows));
 
     ui.cityLayer.appendChild(dot);
   });
+
+  layoutCityLabels();
 }
 
 /** 地图底图加载（ECharts） */
