@@ -1,7 +1,5 @@
 const CSV_PATHS = [
   "data/io_orgs.csv",
-  "./data/io_orgs.csv",
-  "/data/io_orgs.csv",
 ];
 
 const root = document.getElementById("allCards");
