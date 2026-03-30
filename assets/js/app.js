@@ -283,17 +283,32 @@ function groupByCity(list) {
   return grouped;
 }
 
+const CATEGORY_COLOR_MAP = {
+  "环境、气候与可持续发展": "#2e9f6b",
+  "教育、人才与能力建设": "#3e8ef7",
+  "卫生与公共健康": "#e56b6f",
+  "经济、贸易与投资": "#d4a017",
+  "科技、数字治理与人工智能": "#7b61ff",
+  "社会治理与公共政策": "#5b7cfa",
+  "人权、包容与社会发展": "#a855f7",
+  "文化、传播与交流": "#ec4899",
+  "农业、粮食与乡村发展": "#65a30d",
+  "能源、基础设施与工业发展": "#0f766e",
+  "法律、司法与争端解决": "#475569",
+  "青年、性别与社区发展": "#f97316",
+  "慈善、公益与志愿行动": "#14b8a6"
+};
+
 function cardColor(item) {
-  const x = `${item.attr}-${item.category1}`;
-  let hash = 0;
-  for (let i = 0; i < x.length; i++) hash = x.charCodeAt(i) + ((hash << 5) - hash);
-  return `hsl(${Math.abs(hash) % 360} 70% 45%)`;
+  const category = String(item.category1 || "").trim();
+  return CATEGORY_COLOR_MAP[category] || "#3e8ef7";
 }
 
 function renderCard(item) {
   const div = document.createElement("article");
-  div.className = "card";
+  div.className = "card card-db";
   div.style.borderLeftColor = cardColor(item);
+  div.style.setProperty("--card-accent", cardColor(item));
 
   const websiteHtml =
     item.website && item.website !== "暂无"
