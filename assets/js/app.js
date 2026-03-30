@@ -170,13 +170,16 @@ function normalize(row) {
     cn: getField(row, ["中文名"]),
     en: getField(row, ["英文名"]),
     attr: getField(row, ["属性"]),
-    category1: getField(row, ["第一细分类"]),
+    category1: getField(row, ["行动领域"]),
     year: getField(row, ["成立年份"]),
     location: getField(row, ["所在地"]),
     website: getField(row, ["官网"]),
+    wechat: getField(row, ["微信公众号"]),
     linkedin: getField(row, ["LinkedIn"]),
-    intro: getField(row, ["中国办公室介绍"]),
-    refs: getField(row, ["参考文献"]),
+
+    // 暂时不展示，但继续保留在数据结构里，便于后续扩展
+    intro: getField(row, ["机构介绍"]),
+    refs: getField(row, ["参考资料"]),
   };
 }
 
@@ -302,33 +305,201 @@ function renderCard(item) {
       ? `<a href="${item.linkedin}" target="_blank" rel="noopener noreferrer">${item.linkedin}</a>`
       : "暂无";
 
+  const wechatHtml =
+    item.wechat && item.wechat !== "暂无"
+      ? item.wechat
+      : "暂无";
+
   div.innerHTML = `
     <h3>${item.cn || "未命名机构"}</h3>
     <p class="sub">${item.en || "-"}</p>
     <div class="meta">
       <div><strong>属性：</strong>${item.attr || "暂无"}</div>
-      <div><strong>第一细分类：</strong>${item.category1 || "暂无"}</div>
+      <div><strong>行动领域：</strong>${item.category1 || "暂无"}</div>
       <div><strong>成立年份：</strong>${item.year || "暂无"}</div>
       <div><strong>所在地：</strong>${item.location || "暂无"}</div>
       <div><strong>官网：</strong>${websiteHtml}</div>
+      <div><strong>微信公众号：</strong>${wechatHtml}</div>
       <div><strong>LinkedIn：</strong>${linkedinHtml}</div>
     </div>
-    <details>
-      <summary>展开查看介绍与参考文献</summary>
-      <div class="expand">
-        <div><strong>中国办公室介绍：</strong>${item.intro || "暂无"}</div>
-        <div style="margin-top: 6px;"><strong>参考文献：</strong>${item.refs || "暂无"}</div>
-      </div>
-    </details>
   `;
   return div;
 }
 
+let currentDrawerState = {
+  city: "",
+  sourceList: [],
+};
+
+function buildDrawerSelectOptions(values) {
+  const sorted = [...new Set(values.filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, "zh-Hans-CN")
+  );
+
+  return [
+    `<option value="">全部</option>`,
+    ...sorted.map((v) => `<option value="${v}">${v}</option>`),
+  ].join("");
+}
+
+function renderDrawerCardsList(list) {
+  const listEl = document.getElementById("drawerCardsList");
+  if (!listEl) return;
+
+  listEl.innerHTML = "";
+
+  if (!list.length) {
+    const empty = document.createElement("div");
+    empty.className = "card";
+    empty.innerHTML = `<div class="meta">当前筛选条件下暂无机构。</div>`;
+    listEl.appendChild(empty);
+    return;
+  }
+
+  list.forEach((item) => listEl.appendChild(renderCard(item)));
+}
+
+function applyDrawerFilters() {
+  const q = (document.getElementById("drawerSearchInput")?.value || "").trim().toLowerCase();
+  const attr = document.getElementById("drawerAttrFilter")?.value || "";
+  const category = document.getElementById("drawerCategoryFilter")?.value || "";
+  const year = document.getElementById("drawerYearFilter")?.value || "";
+
+  const result = currentDrawerState.sourceList.filter((item) => {
+    const matchedSearch =
+      !q || Object.values(item).join(" ").toLowerCase().includes(q);
+
+    const matchedAttr = !attr || item.attr === attr;
+    const matchedCategory = !category || item.category1 === category;
+    const matchedYear = !year || item.year === year;
+
+    return matchedSearch && matchedAttr && matchedCategory && matchedYear;
+  });
+
+  const countEl = document.getElementById("drawerFilterCount");
+  if (countEl) {
+    countEl.textContent = `当前筛选结果：${result.length} / ${currentDrawerState.sourceList.length}`;
+  }
+
+  renderDrawerCardsList(result);
+}
+
+function bindDrawerFilterEvents() {
+  const ids = [
+    "drawerSearchInput",
+    "drawerAttrFilter",
+    "drawerCategoryFilter",
+    "drawerYearFilter",
+  ];
+
+  ids.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", applyDrawerFilters);
+    el.addEventListener("change", applyDrawerFilters);
+  });
+
+  const resetBtn = document.getElementById("drawerResetBtn");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      const search = document.getElementById("drawerSearchInput");
+      const attr = document.getElementById("drawerAttrFilter");
+      const category = document.getElementById("drawerCategoryFilter");
+      const year = document.getElementById("drawerYearFilter");
+
+      if (search) search.value = "";
+      if (attr) attr.value = "";
+      if (category) category.value = "";
+      if (year) year.value = "";
+
+      applyDrawerFilters();
+    });
+  }
+}
+
 function openDrawer(city, list) {
+  currentDrawerState = {
+    city,
+    sourceList: [...list],
+  };
+
+  const attrOptions = buildDrawerSelectOptions(list.map((item) => item.attr));
+  const categoryOptions = buildDrawerSelectOptions(list.map((item) => item.category1));
+  const yearOptions = buildDrawerSelectOptions(list.map((item) => item.year));
+
   ui.drawer.classList.add("open");
   ui.drawerTitle.textContent = `${city}（${list.length}个机构）`;
-  ui.cardsContainer.innerHTML = "";
-  list.forEach((item) => ui.cardsContainer.appendChild(renderCard(item)));
+
+  ui.cardsContainer.innerHTML = `
+    <div style="
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #fff;
+      border-bottom: 1px solid #e5ebf3;
+      padding: 12px;
+    ">
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input
+          id="drawerSearchInput"
+          type="text"
+          placeholder="在本城市机构中检索：机构名、属性、行动领域、官网、微信公众号等"
+          style="
+            flex:1;
+            min-width:0;
+            padding:10px 12px;
+            border:1px solid #d7dfeb;
+            border-radius:10px;
+            font-size:14px;
+          "
+        />
+        <button
+          id="drawerResetBtn"
+          type="button"
+          style="
+            border:1px solid #d7dfeb;
+            background:#fff;
+            border-radius:10px;
+            padding:10px 14px;
+            font-size:14px;
+            white-space:nowrap;
+          "
+        >重置</button>
+      </div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+        <label style="flex:1 1 160px; font-size:12px; color:#61708a; display:flex; flex-direction:column; gap:6px;">
+          属性
+          <select id="drawerAttrFilter" style="padding:8px 10px; border:1px solid #d7dfeb; border-radius:10px; font-size:13px; background:#fff;">
+            ${attrOptions}
+          </select>
+        </label>
+
+        <label style="flex:1 1 160px; font-size:12px; color:#61708a; display:flex; flex-direction:column; gap:6px;">
+          行动领域
+          <select id="drawerCategoryFilter" style="padding:8px 10px; border:1px solid #d7dfeb; border-radius:10px; font-size:13px; background:#fff;">
+            ${categoryOptions}
+          </select>
+        </label>
+
+        <label style="flex:1 1 120px; font-size:12px; color:#61708a; display:flex; flex-direction:column; gap:6px;">
+          成立年份
+          <select id="drawerYearFilter" style="padding:8px 10px; border:1px solid #d7dfeb; border-radius:10px; font-size:13px; background:#fff;">
+            ${yearOptions}
+          </select>
+        </label>
+      </div>
+
+      <div id="drawerFilterCount" style="font-size:12px; color:#61708a; margin-top:8px;">
+        当前筛选结果：${list.length} / ${list.length}
+      </div>
+    </div>
+
+    <div id="drawerCardsList" style="display:grid; gap:10px; padding:12px;"></div>
+  `;
+
+  bindDrawerFilterEvents();
+  applyDrawerFilters();
 }
 
 function renderSearchResults(list) {
@@ -1412,7 +1583,7 @@ async function loadData() {
     "请优先检查：\n" +
     "1. data/io_orgs.csv 是否确实存在；\n" +
     "2. 文件编码是否为 UTF-8；\n" +
-    "3. 表头是否为：中文名、英文名、属性、第一细分类、成立年份、所在地、官网、LinkedIn、中国办公室介绍、参考文献；\n" +
+    "3. 表头是否为：中文名、英文名、属性、行动领域、成立年份、所在地、官网、微信公众号、LinkedIn、机构介绍、参考资料；\n" +
     "4. 页面脚本是否全部成功加载。\n\n" +
     "调试信息：\n" + debugText
   );
