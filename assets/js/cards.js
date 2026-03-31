@@ -47,6 +47,10 @@ const state = {
   pageSize: 20,
   viewMode: "card",
   openFilterKey: null,
+  sort: {
+    key: null,
+    direction: null // "asc" | "desc" | null
+  },
   selected: {
     attr: new Set(),
     cate: new Set(),
@@ -140,6 +144,137 @@ function uniqueSortedValues(values, type = "text") {
   const arr = [...new Set(values.map((v) => String(v || "").trim()).filter(Boolean))];
   if (type === "year") return arr.sort((a, b) => Number(a) - Number(b));
   return arr.sort((a, b) => a.localeCompare(b, "zh-CN-u-co-pinyin"));
+}
+
+function getSortValue(row, key) {
+  const item = getCardData(row);
+
+  switch (key) {
+    case "cn":
+      return item.cn || "";
+    case "en":
+      return item.en || "";
+    case "attr":
+      return item.attr || "";
+    case "cate":
+      return item.cate || "";
+    case "loc":
+      return item.loc || "";
+    case "year":
+      return item.year || "";
+    default:
+      return "";
+  }
+}
+
+function compareSortValues(a, b, key, direction) {
+  const factor = direction === "desc" ? -1 : 1;
+
+  if (key === "year") {
+    const aNum = Number(a) || 0;
+    const bNum = Number(b) || 0;
+    return (aNum - bNum) * factor;
+  }
+
+  if (key === "en") {
+    return String(a).localeCompare(String(b), "en", { sensitivity: "base" }) * factor;
+  }
+
+  return String(a).localeCompare(String(b), "zh-CN-u-co-pinyin") * factor;
+}
+
+function applySortToRows(rows) {
+  const { key, direction } = state.sort;
+  if (!key || !direction) return [...rows];
+
+  return [...rows].sort((rowA, rowB) => {
+    const a = getSortValue(rowA, key);
+    const b = getSortValue(rowB, key);
+    return compareSortValues(a, b, key, direction);
+  });
+}
+
+function getSortIndicator(key, direction) {
+  const isAsc = state.sort.key === key && state.sort.direction === "asc";
+  const isDesc = state.sort.key === key && state.sort.direction === "desc";
+
+  return `
+    <span class="sort-icons">
+      <button
+        type="button"
+        class="sort-btn ${isAsc ? "active" : ""}"
+        data-sort-key="${key}"
+        data-sort-direction="asc"
+        aria-label="${key} 升序排序"
+      >▲</button>
+      <button
+        type="button"
+        class="sort-btn ${isDesc ? "active" : ""}"
+        data-sort-key="${key}"
+        data-sort-direction="desc"
+        aria-label="${key} 降序排序"
+      >▼</button>
+    </span>
+  `;
+}
+
+function bindListSortEvents() {
+  root.querySelectorAll("[data-sort-key]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.getAttribute("data-sort-key");
+      const direction = btn.getAttribute("data-sort-direction");
+
+      if (state.sort.key === key && state.sort.direction === direction) {
+        state.sort.key = null;
+        state.sort.direction = null;
+      } else {
+        state.sort.key = key;
+        state.sort.direction = direction;
+      }
+
+      currentPage = 1;
+      render();
+    });
+  });
+}
+
+function setupListScrollbars() {
+  const top = document.getElementById("listScrollTop");
+  const topInner = document.getElementById("listScrollTopInner");
+  const shell = document.getElementById("listScrollShell");
+  const table = document.getElementById("listTableActual");
+
+  if (!top || !topInner || !shell || !table) return;
+
+  const syncWidths = () => {
+    topInner.style.width = `${table.scrollWidth}px`;
+  };
+
+  let syncing = false;
+
+  const syncFromTop = () => {
+    if (syncing) return;
+    syncing = true;
+    shell.scrollLeft = top.scrollLeft;
+    syncing = false;
+  };
+
+  const syncFromShell = () => {
+    if (syncing) return;
+    syncing = true;
+    top.scrollLeft = shell.scrollLeft;
+    syncing = false;
+  };
+
+  syncWidths();
+  top.removeEventListener("scroll", syncFromTop);
+  shell.removeEventListener("scroll", syncFromShell);
+
+  top.addEventListener("scroll", syncFromTop);
+  shell.addEventListener("scroll", syncFromShell);
+
+  requestAnimationFrame(syncWidths);
+  window.addEventListener("resize", syncWidths, { passive: true });
 }
 
 function parseCsvTextFallback(text) {
@@ -407,7 +542,7 @@ function filterMatch(set, value) {
 function filterData() {
   const keyword = searchInput.value.trim().toLowerCase();
 
-  filteredData = rawData.filter((row) => {
+  const result = rawData.filter((row) => {
     const item = getCardData(row);
     const rowCity = deriveCity(item);
 
@@ -419,6 +554,8 @@ function filterData() {
 
     return matchKeyword && matchAttr && matchCate && matchYear && matchCity;
   });
+
+  filteredData = applySortToRows(result);
 }
 
 function getTotalPages() {
@@ -504,16 +641,50 @@ function renderCardView(rows) {
 function renderListView(rows) {
   root.className = "cards-results list-view";
   root.innerHTML = `
-    <div class="list-table">
-      <div class="list-table-header">
-        <div class="list-col list-col-name">机构名称</div>
-        <div class="list-col list-col-attr">属性</div>
-        <div class="list-col list-col-cate">行动领域</div>
-        <div class="list-col list-col-loc">所在地</div>
-        <div class="list-col list-col-year">成立年份</div>
-        <div class="list-col list-col-site">官网</div>
+    <div class="list-scroll-top" id="listScrollTop">
+      <div class="list-scroll-top-inner" id="listScrollTopInner"></div>
+    </div>
+
+    <div class="list-scroll-shell" id="listScrollShell">
+      <div class="list-table" id="listTableActual">
+        <div class="list-table-header">
+          <div class="list-col list-col-cn">
+            <span class="list-head-label">中文名</span>
+            ${getSortIndicator("cn", "asc")}
+          </div>
+
+          <div class="list-col list-col-en">
+            <span class="list-head-label">英文名</span>
+            ${getSortIndicator("en", "asc")}
+          </div>
+
+          <div class="list-col list-col-attr">
+            <span class="list-head-label">属性</span>
+            ${getSortIndicator("attr", "asc")}
+          </div>
+
+          <div class="list-col list-col-cate">
+            <span class="list-head-label">行动领域</span>
+            ${getSortIndicator("cate", "asc")}
+          </div>
+
+          <div class="list-col list-col-loc">
+            <span class="list-head-label">所在地</span>
+            ${getSortIndicator("loc", "asc")}
+          </div>
+
+          <div class="list-col list-col-year">
+            <span class="list-head-label">成立年份</span>
+            ${getSortIndicator("year", "asc")}
+          </div>
+
+          <div class="list-col list-col-site">
+            <span class="list-head-label">官网</span>
+          </div>
+        </div>
+
+        <div id="listTableBody"></div>
       </div>
-      <div id="listTableBody"></div>
     </div>
   `;
 
@@ -528,8 +699,11 @@ function renderListView(rows) {
     line.style.setProperty("--row-accent", color);
 
     line.innerHTML = `
-      <div class="list-col list-col-name">
+      <div class="list-col list-col-cn">
         <div class="list-name-cn">${escapeHtml(item.cn || "未命名机构")}</div>
+      </div>
+
+      <div class="list-col list-col-en">
         <div class="list-name-en">${escapeHtml(item.en || "-")}</div>
       </div>
 
@@ -557,6 +731,9 @@ function renderListView(rows) {
     `;
     body.appendChild(line);
   });
+
+  bindListSortEvents();
+  setupListScrollbars();
 }
 
 function renderResults() {
