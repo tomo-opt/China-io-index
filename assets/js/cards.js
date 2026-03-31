@@ -506,12 +506,12 @@ function renderListView(rows) {
   root.innerHTML = `
     <div class="list-table">
       <div class="list-table-header">
-        <div>机构名称</div>
-        <div>属性</div>
-        <div>行动领域</div>
-        <div>所在地</div>
-        <div>成立年份</div>
-        <div>官网</div>
+        <div class="list-col list-col-name">机构名称</div>
+        <div class="list-col list-col-attr">属性</div>
+        <div class="list-col list-col-cate">行动领域</div>
+        <div class="list-col list-col-loc">所在地</div>
+        <div class="list-col list-col-year">成立年份</div>
+        <div class="list-col list-col-site">官网</div>
       </div>
       <div id="listTableBody"></div>
     </div>
@@ -528,15 +528,32 @@ function renderListView(rows) {
     line.style.setProperty("--row-accent", color);
 
     line.innerHTML = `
-      <div class="list-col-name">
+      <div class="list-col list-col-name">
         <div class="list-name-cn">${escapeHtml(item.cn || "未命名机构")}</div>
         <div class="list-name-en">${escapeHtml(item.en || "-")}</div>
       </div>
-      <div>${escapeHtml(item.attr || "暂无")}</div>
-      <div><span class="list-cate-pill" style="--pill-accent:${color}">${escapeHtml(item.cate || "未分类")}</span></div>
-      <div>${escapeHtml(item.loc || "暂无")}</div>
-      <div>${escapeHtml(item.year || "暂无")}</div>
-      <div>${formatLink(item.website)}</div>
+
+      <div class="list-col list-col-attr">
+        ${escapeHtml(item.attr || "暂无")}
+      </div>
+
+      <div class="list-col list-col-cate">
+        <span class="list-cate-pill" style="--pill-accent:${color}">
+          ${escapeHtml(item.cate || "未分类")}
+        </span>
+      </div>
+
+      <div class="list-col list-col-loc">
+        ${escapeHtml(item.loc || "暂无")}
+      </div>
+
+      <div class="list-col list-col-year">
+        ${escapeHtml(item.year || "暂无")}
+      </div>
+
+      <div class="list-col list-col-site">
+        ${formatLink(item.website)}
+      </div>
     `;
     body.appendChild(line);
   });
