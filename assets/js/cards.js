@@ -128,7 +128,7 @@ function buildSearchText(row) {
 }
 
 function getCategoryColor(category) {
-  const key = String(category || "").trim();
+  const key = splitTags(category)[0] || "";
   return CATEGORY_COLOR_MAP[key] || "#3e8ef7";
 }
 
@@ -387,8 +387,8 @@ function buildFilterOptions() {
     };
   });
 
-  state.options.attr = uniqueSortedValues(rows.map((i) => i.attr));
-  state.options.cate = uniqueSortedValues(rows.map((i) => i.cate));
+  state.options.attr = uniqueSortedValues(rows.flatMap((i) => splitTags(i.attr)));
+  state.options.cate = uniqueSortedValues(rows.flatMap((i) => splitTags(i.cate)));
   state.options.year = uniqueSortedValues(rows.map((i) => i.year), "year");
   state.options.city = uniqueSortedValues(rows.map((i) => i.city));
 }
@@ -535,9 +535,33 @@ function renderActiveFilterChips() {
   });
 }
 
+function splitTags(value) {
+  return String(value || "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+function renderTagChips(value, type = "default") {
+  const tags = splitTags(value);
+  if (!tags.length) return "暂无";
+
+  return `
+    <span class="tag-chip-group">
+      ${tags.map((tag) => `
+        <span class="data-tag data-tag-${type}">${escapeHtml(tag)}</span>
+      `).join("")}
+    </span>
+  `;
+}
+
 function filterMatch(set, value) {
   if (!set || set.size === 0) return true;
-  return set.has(String(value || "").trim());
+
+  const tags = splitTags(value);
+  if (!tags.length) return false;
+
+  return tags.some((tag) => set.has(tag));
 }
 
 function filterData() {
@@ -609,12 +633,12 @@ function createCard(row) {
         <h3>${escapeHtml(item.cn || "未命名机构")}</h3>
         <p class="sub">${escapeHtml(item.en || "-")}</p>
       </div>
-      <span class="card-category-chip">${escapeHtml(item.cate || "未分类")}</span>
+      <span class="card-category-chip">${escapeHtml(splitTags(item.cate)[0] || "未分类")}</span>
     </div>
 
     <div class="meta">
-      <div><strong>属性：</strong>${escapeHtml(item.attr || "暂无")}</div>
-      <div><strong>行动领域：</strong>${escapeHtml(item.cate || "暂无")}</div>
+      <div><strong>属性：</strong>${renderTagChips(item.attr, "attr")}</div>
+      <div><strong>行动领域：</strong>${renderTagChips(item.cate, "category")}</div>
       <div><strong>成立年份：</strong>${escapeHtml(item.year || "暂无")}</div>
       <div><strong>所在地：</strong>${escapeHtml(item.loc || "暂无")}</div>
       <div><strong>官网：</strong>${formatLink(item.website)}</div>
@@ -725,13 +749,11 @@ function renderListView(rows) {
       </div>
 
       <div class="list-col list-col-attr">
-        ${escapeHtml(item.attr || "暂无")}
+        ${renderTagChips(item.attr, "attr")}
       </div>
 
       <div class="list-col list-col-cate">
-        <span class="list-cate-pill" style="--pill-accent:${color}">
-          ${escapeHtml(item.cate || "未分类")}
-        </span>
+        ${renderTagChips(item.cate, "category")}
       </div>
 
       <div class="list-col list-col-loc">
