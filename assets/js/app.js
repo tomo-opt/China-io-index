@@ -974,6 +974,10 @@ function renderCityDots(grouped) {
   const box = getDisplayImageBox();
   if (!box) return;
 
+  if (!grouped["台湾省"]) {
+  grouped["台湾省"] = [];
+  }
+  
   Object.entries(grouped).forEach(([city, rows]) => {
     const anchor = CITY_ANCHORS[city];
     if (!anchor) return;
