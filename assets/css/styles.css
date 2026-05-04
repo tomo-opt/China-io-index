@@ -1750,3 +1750,34 @@ body.calibration-mode .map-image-stage {
 .list-col-cate .tag-chip-group {
   align-items: flex-start;
 }
+
+.citation {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+  margin: 0 2px;
+}
+
+.citation:hover {
+  text-decoration: underline;
+}
+
+.references-section {
+  scroll-margin-top: 90px;
+}
+
+.reference-list {
+  padding-left: 1.5rem;
+  line-height: 1.8;
+}
+
+.reference-list li {
+  margin-bottom: 0.9rem;
+  scroll-margin-top: 90px;
+  word-break: break-word;
+}
+
+.reference-list a {
+  color: #2563eb;
+  text-decoration: underline;
+}
