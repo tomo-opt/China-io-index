@@ -1012,7 +1012,9 @@ function renderCityDots(grouped) {
     dot.style.top = `${y}px`;
     dot.style.width = `${dotSize}px`;
     dot.style.height = `${dotSize}px`;
-    dot.title = isTaiwanComingSoon ? "台湾省（敬请期待）" : `${city}（${count}个机构）`;
+    if (isTaiwanComingSoon) {
+      dot.classList.add("city-dot-placeholder");
+    }
     dot.dataset.city = city;
     dot.dataset.count = String(count);
     dot.dataset.x = String(x);
@@ -1027,7 +1029,10 @@ function renderCityDots(grouped) {
     label.setAttribute("aria-label", isTaiwanComingSoon ? "台湾省，敬请期待" : `${city}，${count}个机构`);
     dot.appendChild(label);
 
-    const openCityDrawer = () => openDrawer(city, rows);
+    const openCityDrawer = () => {
+      if (isTaiwanComingSoon) return;
+      openDrawer(city, rows);
+    };
 
     const activateCity = () => {
       dot.classList.add("is-hovered-city");
