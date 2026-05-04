@@ -1781,3 +1781,8 @@ body.calibration-mode .map-image-stage {
   color: #2563eb;
   text-decoration: underline;
 }
+
+.city-dot-placeholder,
+.city-dot-placeholder .count {
+  cursor: default;
+}
