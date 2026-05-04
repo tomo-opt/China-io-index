@@ -148,9 +148,20 @@ function clearSelected(stateObj, key) {
   stateObj.selected[key].clear();
 }
 
+function splitTags(value) {
+  return String(value || "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
 function matchesSelected(setObj, value) {
   if (!setObj || setObj.size === 0) return true;
-  return setObj.has(String(value || "").trim());
+
+  const tags = splitTags(value);
+  if (!tags.length) return false;
+
+  return tags.some((tag) => setObj.has(tag));
 }
 
 /** 阈值配置 */
@@ -194,6 +205,7 @@ const CITY_ANCHORS = {
   "黑龙江省齐齐哈尔市":	{ x: 0.7289, y: 0.1980 },
   "湖北省武汉市":	{ x: 0.6211, y: 0.6544 },
   "湖南省长沙市":	{ x: 0.6014, y: 0.7190 },
+  "湖南省湘西土家族苗族自治州": { x: 0.5515, y: 0.7195 },
   "吉林省珲春市":	{ x: 0.8259, y: 0.2940 },
   "吉林省吉林市":	{ x: 0.7719, y: 0.2815 },
   "吉林省图们市":	{ x: 0.8176, y: 0.2927 },
@@ -221,11 +233,13 @@ const CITY_ANCHORS = {
   "山东省烟台市":	{ x: 0.7209, y: 0.4657 },
   "山西省太原市":	{ x: 0.5922, y: 0.4649 },
   "陕西省西安市":	{ x: 0.5379, y: 0.5613 },
+  "陕西省咸阳市": { x: 0.5360, y: 0.5578 },
   "上海市":	{ x: 0.7326, y: 0.6247 },
   "四川省成都市":	{ x: 0.4615, y: 0.6509 },
   "四川省乐山市":	{ x: 0.4562, y: 0.6791 },
   "四川省雅安市":	{ x: 0.4454, y: 0.6674 },
   "四川省自贡市":	{ x: 0.4722, y: 0.6873 },
+  "四川省凉山彝族自治州": { x: 0.4289, y: 0.7219 },
   "天津市":	{ x: 0.6552, y: 0.4283 },
   "西藏自治区拉萨市":	{ x: 0.2565, y: 0.6431 },
   "新疆维吾尔自治区乌鲁木齐市":	{ x: 0.2599, y: 0.2624 },
@@ -239,6 +253,9 @@ const CITY_ANCHORS = {
   "浙江省绍兴市":	{ x: 0.7211, y: 0.6589 },
   "浙江省义乌市":	{ x: 0.7147, y: 0.6788 },
   "重庆市":	{ x: 0.5002, y: 0.6836 },
+  "澳门特别行政区": { x: 0.6162, y: 0.8759 },
+  "香港特别行政区": { x: 0.6284, y: 0.8733 },
+  "台湾省": { x: 0.7490, y: 0.7874 },
 };
 
 /** ECharts模式：经纬度点位 */
@@ -393,6 +410,12 @@ function normalizeCityName(location = "") {
   if (t.includes("绍兴")) return "浙江省绍兴市";
   if (t.includes("义乌")) return "浙江省义乌市";
   if (t.includes("重庆")) return "重庆市";
+  if (t.includes("咸阳")) return "陕西省咸阳市";
+  if (t.includes("湘西")) return "湖南省湘西土家族苗族自治州";
+  if (t.includes("凉山")) return "四川省凉山彝族自治州";
+  if (t.includes("澳门")) return "澳门特别行政区";
+  if (t.includes("香港")) return "香港特别行政区";
+  if (t.includes("台湾")) return "台湾省";
 
   return t || "未知";
 }
@@ -428,8 +451,21 @@ const CATEGORY_COLOR_MAP = {
 };
 
 function cardColor(item) {
-  const category = String(item.category1 || "").trim();
-  return CATEGORY_COLOR_MAP[category] || "#3e8ef7";
+  const firstCategory = splitTags(item.category1)[0] || "";
+  return CATEGORY_COLOR_MAP[firstCategory] || "#3e8ef7";
+}
+
+function renderTagChips(value, type = "default") {
+  const tags = splitTags(value);
+  if (!tags.length) return "暂无";
+
+  return `
+    <span class="tag-chip-group">
+      ${tags.map((tag) => `
+        <span class="data-tag data-tag-${type}">${escapeHtml(tag)}</span>
+      `).join("")}
+    </span>
+  `;
 }
 
 function renderCard(item) {
@@ -457,8 +493,8 @@ function renderCard(item) {
     <h3>${item.cn || "未命名机构"}</h3>
     <p class="sub">${item.en || "-"}</p>
     <div class="meta">
-      <div><strong>属性：</strong>${item.attr || "暂无"}</div>
-      <div><strong>行动领域：</strong>${item.category1 || "暂无"}</div>
+      <div><strong>属性：</strong>${renderTagChips(item.attr, "attr")}</div>
+      <div><strong>行动领域：</strong>${renderTagChips(item.category1, "category")}</div>
       <div><strong>成立年份：</strong>${item.year || "暂无"}</div>
       <div><strong>所在地：</strong>${item.location || "暂无"}</div>
       <div><strong>官网：</strong>${websiteHtml}</div>
@@ -633,8 +669,8 @@ function openDrawer(city, list) {
   drawerFilterState.selected.category1.clear();
   drawerFilterState.selected.year.clear();
 
-  drawerFilterState.options.attr = uniqueSortedValues(list.map((item) => item.attr));
-  drawerFilterState.options.category1 = uniqueSortedValues(list.map((item) => item.category1));
+  drawerFilterState.options.attr = uniqueSortedValues(list.flatMap((item) => splitTags(item.attr)));
+  drawerFilterState.options.category1 = uniqueSortedValues(list.flatMap((item) => splitTags(item.category1)));
   drawerFilterState.options.year = uniqueSortedValues(list.map((item) => item.year), "year");
 
   ui.drawer.classList.add("open");
@@ -942,8 +978,9 @@ function renderCityDots(grouped) {
     const anchor = CITY_ANCHORS[city];
     if (!anchor) return;
 
+    const isTaiwanComingSoon = city === "台湾省";
     const count = rows.length;
-    const dotSize = countToDotSize(count);
+    const dotSize = isTaiwanComingSoon ? countToDotSize(1) : countToDotSize(count);
 
     const x = box.left + anchor.x * box.width;
     const y = box.top + anchor.y * box.height;
@@ -955,7 +992,7 @@ function renderCityDots(grouped) {
     dot.style.top = `${y}px`;
     dot.style.width = `${dotSize}px`;
     dot.style.height = `${dotSize}px`;
-    dot.title = `${city}（${count}个机构）`;
+    dot.title = isTaiwanComingSoon ? "台湾省（敬请期待）" : `${city}（${count}个机构）`;
     dot.dataset.city = city;
     dot.dataset.count = String(count);
     dot.dataset.x = String(x);
@@ -964,10 +1001,10 @@ function renderCityDots(grouped) {
 
     const label = document.createElement("span");
     label.className = "count";
-    label.textContent = `${city}(${count})`;
+    label.textContent = isTaiwanComingSoon ? "台湾省（敬请期待）" : `${city}(${count})`;
     label.setAttribute("role", "button");
     label.setAttribute("tabindex", "0");
-    label.setAttribute("aria-label", `${city}，${count}个机构`);
+    label.setAttribute("aria-label", isTaiwanComingSoon ? "台湾省，敬请期待" : `${city}，${count}个机构`);
     dot.appendChild(label);
 
     const openCityDrawer = () => openDrawer(city, rows);
@@ -1370,8 +1407,8 @@ function renderEchartsMap(grouped) {
 }
 
 function updateFilterOptions() {
-  mapFilterState.options.attr = uniqueSortedValues(records.map((r) => r.attr));
-  mapFilterState.options.category1 = uniqueSortedValues(records.map((r) => r.category1));
+  mapFilterState.options.attr = uniqueSortedValues(records.flatMap((r) => splitTags(r.attr)));
+  mapFilterState.options.category1 = uniqueSortedValues(records.flatMap((r) => splitTags(r.category1)));
   mapFilterState.options.year = uniqueSortedValues(records.map((r) => r.year), "year");
   mapFilterState.options.location = uniqueSortedValues(records.map((r) => r.location));
 
