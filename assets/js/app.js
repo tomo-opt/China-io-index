@@ -422,11 +422,31 @@ function normalizeCityName(location = "") {
 
 function groupByCity(list) {
   const grouped = {};
+
   list.forEach((r) => {
     const city = normalizeCityName(r.location);
     if (!grouped[city]) grouped[city] = [];
     grouped[city].push(r);
   });
+
+  // 强制展示台湾省，即使当前数据库中暂无机构
+  if (!grouped["台湾省"]) {
+    grouped["台湾省"] = [{
+      cn: "台湾省（敬请期待）",
+      en: "",
+      attr: "",
+      category1: "",
+      year: "",
+      location: "台湾省",
+      website: "",
+      wechat: "",
+      linkedin: "",
+      intro: "",
+      refs: "",
+      _placeholder: true
+    }];
+  }
+
   return grouped;
 }
 
@@ -973,18 +993,14 @@ function renderCityDots(grouped) {
 
   const box = getDisplayImageBox();
   if (!box) return;
-
-  if (!grouped["台湾省"]) {
-  grouped["台湾省"] = [];
-  }
   
   Object.entries(grouped).forEach(([city, rows]) => {
     const anchor = CITY_ANCHORS[city];
     if (!anchor) return;
 
     const isTaiwanComingSoon = city === "台湾省";
-    const count = rows.length;
-    const dotSize = isTaiwanComingSoon ? countToDotSize(1) : countToDotSize(count);
+    const count = isTaiwanComingSoon ? 1 : rows.length;
+    const dotSize = countToDotSize(count);
 
     const x = box.left + anchor.x * box.width;
     const y = box.top + anchor.y * box.height;
