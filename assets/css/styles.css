@@ -1707,3 +1707,46 @@ body.calibration-mode .map-image-stage {
     font-size: 13px;
   }
 }
+
+/* =========================
+   多属性 / 多行动领域标签样式
+   ========================= */
+
+.tag-chip-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  vertical-align: middle;
+}
+
+.data-tag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  background: #f3f6fb;
+  border: 1px solid #d7dfeb;
+  color: #334155;
+  word-break: break-word;
+}
+
+.data-tag-category {
+  background: color-mix(in srgb, var(--card-accent, #3e8ef7) 10%, white);
+  border-color: color-mix(in srgb, var(--card-accent, #3e8ef7) 28%, white);
+  color: var(--card-accent, #3e8ef7);
+}
+
+.data-tag-attr {
+  background: #f8fbff;
+  border-color: #cbd9ef;
+  color: #24415f;
+}
+
+.list-col-attr .tag-chip-group,
+.list-col-cate .tag-chip-group {
+  align-items: flex-start;
+}
