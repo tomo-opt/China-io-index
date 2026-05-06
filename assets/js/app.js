@@ -33,10 +33,10 @@ let records = [];
 let filtered = [];
 
 const MAP_FILTER_META = [
-  { key: "attr", title: "属性", mount: "mapFilterAttr" },
+  { key: "attr", title: "机构属性", mount: "mapFilterAttr" },
   { key: "category1", title: "行动领域", mount: "mapFilterCategory" },
-  { key: "year", title: "成立年份", mount: "mapFilterYear" },
-  { key: "location", title: "所在城市", mount: "mapFilterCity" },
+  { key: "year", title: "设立年份", mount: "mapFilterYear" },
+  { key: "location", title: "所在地", mount: "mapFilterCity" },
 ];
 
 const mapFilterState = {
@@ -451,23 +451,23 @@ function groupByCity(list) {
 }
 
 const CATEGORY_COLOR_MAP = {
-  "产业发展、制造业与行业治理": "#8b5cf6",
-  "城市、区域与基础设施可持续发展": "#0f766e",
-  "创新创业与科技转化": "#2563eb",
-  "公共卫生、医学与生命科学": "#dc2626",
-  "公共政策、治理与能力建设": "#475569",
-  "国际法、仲裁与规则治理": "#7c3aed",
-  "国际交流、公共外交与民间合作": "#ec4899",
-  "国际经贸合作与投资促进": "#d97706",
-  "环境、气候与可持续发展": "#16a34a",
-  "教育、人才与能力建设": "#3b82f6",
-  "金融体系、治理与发展融资": "#b45309",
-  "科学研究与学术合作网络": "#6366f1",
-  "农业、食品与乡村可持续发展": "#65a30d",
-  "社会服务、公益慈善与包容性发展": "#14b8a6",
-  "数字技术、信息治理与网络安全": "#4f46e5",
-  "文化、体育与民间交流": "#db2777",
-  "物流、交通运输与供应链体系": "#0891b2"
+  "产业制造": "#8b5cf6",
+  "城市基建": "#0f766e",
+  "科技创新": "#2563eb",
+  "卫生健康": "#dc2626",
+  "政策治理": "#475569",
+  "法律仲裁": "#7c3aed",
+  "公共外交": "#ec4899",
+  "经贸合作": "#d97706",
+  "气候能源": "#16a34a",
+  "教育培养": "#3b82f6",
+  "金融治理": "#b45309",
+  "学术研究": "#6366f1",
+  "农业食品": "#65a30d",
+  "公益服务": "#14b8a6",
+  "数字信息": "#4f46e5",
+  "文体交流": "#db2777",
+  "物流交通": "#0891b2"
 };
 
 function cardColor(item) {
@@ -513,13 +513,12 @@ function renderCard(item) {
     <h3>${item.cn || "未命名机构"}</h3>
     <p class="sub">${item.en || "-"}</p>
     <div class="meta">
-      <div><strong>属性：</strong>${renderTagChips(item.attr, "attr")}</div>
+      <div><strong>机构属性：</strong>${renderTagChips(item.attr, "attr")}</div>
       <div><strong>行动领域：</strong>${renderTagChips(item.category1, "category")}</div>
-      <div><strong>成立年份：</strong>${item.year || "暂无"}</div>
+      <div><strong>设立年份：</strong>${item.year || "暂无"}</div>
       <div><strong>所在地：</strong>${item.location || "暂无"}</div>
       <div><strong>官网：</strong>${websiteHtml}</div>
       <div><strong>微信公众号：</strong>${wechatHtml}</div>
-      <div><strong>LinkedIn：</strong>${linkedinHtml}</div>
     </div>
   `;
   return div;
@@ -543,7 +542,7 @@ function renderDrawerFilters() {
   `;
 
   renderMultiSelectBlock({
-    title: "属性",
+    title: "机构属性",
     key: "attr",
     mountEl: document.getElementById("drawerFilterAttr"),
     stateObj: drawerFilterState,
@@ -559,7 +558,7 @@ function renderDrawerFilters() {
   });
 
   renderMultiSelectBlock({
-    title: "成立年份",
+    title: "设立年份",
     key: "year",
     mountEl: document.getElementById("drawerFilterYear"),
     stateObj: drawerFilterState,
@@ -710,7 +709,7 @@ function openDrawer(city, list) {
         <input
           id="drawerSearchInput"
           type="text"
-          placeholder="检索机构名、属性、行动领域、官网等"
+          placeholder="检索中文名、外文名、机构属性、行动领域、官网等"
           style="
             flex:1;
             min-width:0;
