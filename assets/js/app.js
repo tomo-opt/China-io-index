@@ -195,9 +195,11 @@ const CITY_ANCHORS = {
   "广西壮族自治区南宁市":	{ x: 0.5277, y: 0.8595 },
   "贵州省贵阳市":	{ x: 0.5017, y: 0.7623 },
   "海南省海口市":	{ x: 0.5601, y: 0.9344 },
+  "海南省三亚市":	{ x: 0.5474, y: 0.9769 },
   "河北省保定市":	{ x: 0.6318, y: 0.4349 },
   "河北省邯郸市":	{ x: 0.6218, y: 0.4963 },
   "河北省廊坊市":	{ x: 0.6483, y: 0.4176 },
+  "河北省雄安新区":	{ x: 0.6406, y: 0.4300 },
   "河南省洛阳市":	{ x: 0.5921, y: 0.5495 },
   "河南省郑州市":	{ x: 0.6096, y: 0.5467 },
   "河南省周口市":	{ x: 0.6253, y: 0.5768 },
@@ -355,9 +357,11 @@ function normalizeCityName(location = "") {
   if (t.includes("南宁")) return "广西壮族自治区南宁市";
   if (t.includes("贵阳")) return "贵州省贵阳市";
   if (t.includes("海口")) return "海南省海口市";
+  if (t.includes("三亚")) return "海南省三亚市";
   if (t.includes("保定")) return "河北省保定市";
   if (t.includes("邯郸")) return "河北省邯郸市";
   if (t.includes("廊坊")) return "河北省廊坊市";
+  if (t.includes("雄安")) return "河北省雄安新区";
   if (t.includes("洛阳")) return "河南省洛阳市";
   if (t.includes("郑州")) return "河南省郑州市";
   if (t.includes("周口")) return "河南省周口市";
