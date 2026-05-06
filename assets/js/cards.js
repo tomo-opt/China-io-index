@@ -1,30 +1,30 @@
 const CSV_PATHS = ["data/io_orgs.csv"];
 
 const FILTER_META = [
-  { key: "attr", title: "属性", mountId: "filterAttr" },
+  { key: "attr", title: "机构属性", mountId: "filterAttr" },
   { key: "cate", title: "行动领域", mountId: "filterCategory" },
-  { key: "year", title: "成立年份", mountId: "filterYear" },
-  { key: "city", title: "所在城市", mountId: "filterCity" }
+  { key: "year", title: "设立年份", mountId: "filterYear" },
+  { key: "city", title: "所在地", mountId: "filterCity" }
 ];
 
 const CATEGORY_COLOR_MAP = {
-  "产业发展、制造业与行业治理": "#8b5cf6",
-  "城市、区域与基础设施可持续发展": "#0f766e",
-  "创新创业与科技转化": "#2563eb",
-  "公共卫生、医学与生命科学": "#dc2626",
-  "公共政策、治理与能力建设": "#475569",
-  "国际法、仲裁与规则治理": "#7c3aed",
-  "国际交流、公共外交与民间合作": "#ec4899",
-  "国际经贸合作与投资促进": "#d97706",
-  "环境、气候与可持续发展": "#16a34a",
-  "教育、人才与能力建设": "#3b82f6",
-  "金融体系、治理与发展融资": "#b45309",
-  "科学研究与学术合作网络": "#6366f1",
-  "农业、食品与乡村可持续发展": "#65a30d",
-  "社会服务、公益慈善与包容性发展": "#14b8a6",
-  "数字技术、信息治理与网络安全": "#4f46e5",
-  "文化、体育与民间交流": "#db2777",
-  "物流、交通运输与供应链体系": "#0891b2"
+  "产业制造": "#8b5cf6",
+  "城市基建": "#0f766e",
+  "科技创新": "#2563eb",
+  "卫生健康": "#dc2626",
+  "政策治理": "#475569",
+  "法律仲裁": "#7c3aed",
+  "公共外交": "#ec4899",
+  "经贸合作": "#d97706",
+  "气候能源": "#16a34a",
+  "教育培养": "#3b82f6",
+  "金融治理": "#b45309",
+  "学术研究": "#6366f1",
+  "农业食品": "#65a30d",
+  "公益服务": "#14b8a6",
+  "数字信息": "#4f46e5",
+  "文体交流": "#db2777",
+  "物流交通": "#0891b2"
 };
 
 const root = document.getElementById("allCards");
@@ -98,9 +98,9 @@ function getCardData(row) {
   return {
     cn: getField(row, ["中文名", "机构中文名", "name_zh"]),
     en: getField(row, ["英文名", "机构英文名", "name_en"]),
-    attr: getField(row, ["属性", "attribute"]),
+    attr: getField(row, ["机构属性", "attribute"]),
     cate: getField(row, ["行动领域", "第一细分类", "一级分类", "category_level_1"]),
-    year: getField(row, ["成立年份", "year_founded", "founded_year"]),
+    year: getField(row, ["设立年份", "year_founded", "founded_year"]),
     loc: getField(row, ["所在地", "所在省份+城市（细）", "所在省份+城市", "location_detail"]),
     website: getField(row, ["官网", "website"]),
     wechat: getField(row, ["微信公众号", "wechat"]),
@@ -637,21 +637,12 @@ function createCard(row) {
     </div>
 
     <div class="meta">
-      <div><strong>属性：</strong>${renderTagChips(item.attr, "attr")}</div>
+      <div><strong>机构属性：</strong>${renderTagChips(item.attr, "attr")}</div>
       <div><strong>行动领域：</strong>${renderTagChips(item.cate, "category")}</div>
-      <div><strong>成立年份：</strong>${escapeHtml(item.year || "暂无")}</div>
+      <div><strong>设立年份：</strong>${escapeHtml(item.year || "暂无")}</div>
       <div><strong>所在地：</strong>${escapeHtml(item.loc || "暂无")}</div>
       <div><strong>官网：</strong>${formatLink(item.website)}</div>
       <div><strong>微信公众号：</strong>${escapeHtml(item.wechat || "暂无")}</div>
-      <div><strong>LinkedIn：</strong>${formatLink(item.linkedin)}</div>
-
-      <details>
-        <summary>展开查看机构介绍与参考文献</summary>
-        <div class="expand">
-          <div><strong>机构介绍：</strong>${escapeHtml(item.intro || "暂无")}</div>
-          <div style="margin-top: 8px;"><strong>参考文献：</strong>${escapeHtml(item.refs || "暂无")}</div>
-        </div>
-      </details>
     </div>
   `;
   return article;
@@ -679,12 +670,12 @@ function renderListView(rows) {
           </div>
 
           <div class="list-col list-col-en">
-            <span class="list-head-label">英文名</span>
+            <span class="list-head-label">外文名</span>
             ${getSortIndicator("en")}
           </div>
 
           <div class="list-col list-col-attr">
-            <span class="list-head-label">属性</span>
+            <span class="list-head-label">机构属性</span>
             ${getSortIndicator("attr")}
           </div>
 
@@ -699,7 +690,7 @@ function renderListView(rows) {
           </div>
 
           <div class="list-col list-col-year">
-            <span class="list-head-label">成立年份</span>
+            <span class="list-head-label">设立年份</span>
             ${getSortIndicator("year")}
           </div>
 
@@ -711,9 +702,6 @@ function renderListView(rows) {
             <span class="list-head-label">微信公众号</span>
           </div>
 
-          <div class="list-col list-col-linkedin">
-            <span class="list-head-label">LinkedIn</span>
-          </div>
         </div>
 
         <div id="listTableBody"></div>
@@ -735,13 +723,6 @@ function renderListView(rows) {
       <div class="list-col list-col-cn">
         <div class="list-name-cn">${escapeHtml(item.cn || "未命名机构")}</div>
 
-        <details class="list-inline-details">
-          <summary>展开查看机构介绍与参考资料</summary>
-          <div class="list-inline-expand">
-            <div><strong>机构介绍：</strong>${escapeHtml(item.intro || "暂无")}</div>
-            <div style="margin-top: 6px;"><strong>参考资料：</strong>${escapeHtml(item.refs || "暂无")}</div>
-          </div>
-        </details>
       </div>
 
       <div class="list-col list-col-en">
@@ -772,9 +753,6 @@ function renderListView(rows) {
         ${escapeHtml(item.wechat || "暂无")}
       </div>
 
-      <div class="list-col list-col-linkedin">
-        ${formatLink(item.linkedin)}
-      </div>
     `;
     body.appendChild(line);
   });
