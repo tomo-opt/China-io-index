@@ -309,10 +309,10 @@ function getField(row, keys) {
 function normalize(row) {
   return {
     cn: getField(row, ["中文名"]),
-    en: getField(row, ["英文名"]),
-    attr: getField(row, ["属性"]),
+    en: getField(row, ["外文名"]),
+    attr: getField(row, ["机构属性"]),
     category1: getField(row, ["行动领域"]),
-    year: getField(row, ["成立年份"]),
+    year: getField(row, ["设立年份"]),
     location: getField(row, ["所在地"]),
     website: getField(row, ["官网"]),
     wechat: getField(row, ["微信公众号"]),
@@ -1897,7 +1897,7 @@ async function loadData() {
     "请优先检查：\n" +
     "1. data/io_orgs.csv 是否确实存在；\n" +
     "2. 文件编码是否为 UTF-8；\n" +
-    "3. 表头是否为：中文名、英文名、属性、行动领域、成立年份、所在地、官网、微信公众号、LinkedIn、机构介绍、参考资料；\n" +
+    "3. 表头是否为：中文名、外文名、机构属性、行动领域、设立年份、所在地、官网、微信公众号、LinkedIn、机构介绍、参考资料；\n" +
     "4. 页面脚本是否全部成功加载。\n\n" +
     "调试信息：\n" + debugText
   );
