@@ -245,6 +245,7 @@ const CITY_ANCHORS = {
   "天津市":	{ x: 0.6552, y: 0.4283 },
   "西藏自治区拉萨市":	{ x: 0.2565, y: 0.6431 },
   "新疆维吾尔自治区乌鲁木齐市":	{ x: 0.2599, y: 0.2624 },
+  "新疆维吾尔自治区克拉玛依市":	{ x: 0.2336, y: 0.2070 },
   "云南省昆明市":	{ x: 0.4349, y: 0.8032 },
   "云南省丽江市":	{ x: 0.3954, y: 0.7442 },
   "浙江省杭州市":	{ x: 0.7132, y: 0.6531 },
@@ -404,6 +405,7 @@ function normalizeCityName(location = "") {
   if (t.includes("天津")) return "天津市";
   if (t.includes("拉萨")) return "西藏自治区拉萨市";
   if (t.includes("乌鲁木齐")) return "新疆维吾尔自治区乌鲁木齐市";
+  if (t.includes("克拉玛依")) return "新疆维吾尔自治区克拉玛依市";
   if (t.includes("昆明")) return "云南省昆明市";
   if (t.includes("丽江")) return "云南省丽江市";
   if (t.includes("杭州")) return "浙江省杭州市";
