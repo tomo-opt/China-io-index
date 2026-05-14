@@ -1,6 +1,4 @@
-const CSV_PATHS = [
-  "data/io_orgs.csv",
-];
+const DATA_PATH = "assets/data/public/orgs_public.json";
 
 const MAP_GEOJSON_PATHS = [
   "assets/data/china-100000_full.json",
@@ -1678,111 +1676,25 @@ function bindAnchorCaptureTool() {
   );
 }
 
-function parseCsvTextFallback(text) {
-  const rows = [];
-  let row = [];
-  let cell = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    const next = text[i + 1];
-
-    if (ch === '"') {
-      if (inQuotes && next === '"') {
-        cell += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (ch === "," && !inQuotes) {
-      row.push(cell);
-      cell = "";
-      continue;
-    }
-
-    if ((ch === "\n" || ch === "\r") && !inQuotes) {
-      if (ch === "\r" && next === "\n") i++;
-      row.push(cell);
-      rows.push(row);
-      row = [];
-      cell = "";
-      continue;
-    }
-
-    cell += ch;
-  }
-
-  if (cell.length > 0 || row.length > 0) {
-    row.push(cell);
-    rows.push(row);
-  }
-
-  const nonEmptyRows = rows.filter((r) => r.some((v) => String(v).trim() !== ""));
-  if (!nonEmptyRows.length) {
-    return { data: [], errors: [{ message: "CSV is empty after parsing." }] };
-  }
-
-  const headers = nonEmptyRows[0].map((h) => String(h).replace(/^\uFEFF/, "").trim());
-  const data = nonEmptyRows.slice(1).map((r) => {
-    const obj = {};
-    headers.forEach((h, idx) => {
-      obj[h] = r[idx] !== undefined ? String(r[idx]).trim() : "";
-    });
-    return obj;
-  });
-
-  return { data, errors: [] };
-}
-
-async function parseCsv(path) {
+async function fetchPublicData(path) {
   const url = new URL(path, window.location.href).href;
 
   const res = await fetch(url, {
     cache: "no-store",
-    credentials: "same-origin",
+    credentials: "same-origin"
   });
 
   if (!res.ok) {
     throw new Error(`HTTP ${res.status} while fetching ${url}`);
   }
 
-  let text = await res.text();
+  const data = await res.json();
 
-  if (!text || !text.trim()) {
-    throw new Error(`CSV text is empty: ${url}`);
+  if (!Array.isArray(data)) {
+    throw new Error(`JSON 格式错误：${url}`);
   }
 
-  // 去掉 UTF-8 BOM
-  text = text.replace(/^\uFEFF/, "");
-
-  // 去掉隐藏字符
-  text = text.replace(/[\u200B-\u200D\u2060]/g, "");
-
-  // 优先用 Papa；若手机端 CDN 没加载成功，则自动回退到本地解析器
-  if (typeof Papa !== "undefined" && typeof Papa.parse === "function") {
-    return new Promise((resolve, reject) => {
-      Papa.parse(text, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          if (results?.errors?.length) {
-            console.warn("CSV parse warnings:", results.errors.slice(0, 20));
-          }
-          resolve(results);
-        },
-        error: (err) => {
-          reject(new Error(`Papa parse failed for ${url}: ${err?.message || err}`));
-        },
-      });
-    });
-  }
-
-  console.warn("Papa is not available; using fallback CSV parser.");
-  return parseCsvTextFallback(text);
+  return data;
 }
 
 function bindEvents() {
@@ -1858,54 +1770,38 @@ function bindEvents() {
 }
 
 async function loadData() {
-  const errors = [];
+  try {
+    const data = await fetchPublicData(DATA_PATH);
 
-  for (const path of CSV_PATHS) {
-    try {
-      const res = await parseCsv(path);
+    records = data
+      .map(normalize)
+      .filter((x) => x.cn || x.en);
 
-      if (!res?.data?.length) {
-        throw new Error(`CSV parsed but no rows found: ${path}`);
-      }
-
-      records = res.data
-        .map(normalize)
-        .filter((x) => x.cn || x.en);
-
-      if (!records.length) {
-        throw new Error(`CSV parsed but produced 0 valid records: ${path}`);
-      }
-
-      updateFilterOptions();
-      bindEvents();
-      applyFilters();
-
-      console.log(`CSV loaded successfully from: ${path}`, {
-        totalRows: res.data.length,
-        validRecords: records.length,
-        sampleRecord: records[0],
-      });
-
-      return;
-    } catch (err) {
-      console.error(`CSV load failed for ${path}:`, err);
-      errors.push(`${path}: ${err?.message || err}`);
+    if (!records.length) {
+      throw new Error("公开 JSON 数据为空或无有效记录");
     }
+
+    updateFilterOptions();
+    bindEvents();
+    applyFilters();
+
+    console.log("公开 JSON 加载成功：", {
+      totalRows: data.length,
+      validRecords: records.length,
+      sampleRecord: records[0],
+    });
+  } catch (err) {
+    console.error("公开 JSON 加载失败：", err);
+
+    alert(
+      "数据文件加载失败。\n\n" +
+      "请优先检查：\n" +
+      "1. assets/data/public/orgs_public.json 是否确实存在；\n" +
+      "2. 文件内容是否为合法 JSON；\n" +
+      "3. 页面脚本是否全部成功加载。\n\n" +
+      "调试信息：\n" + (err?.message || err)
+    );
   }
-
-  console.error("All CSV paths failed:", errors);
-
-  const debugText = errors.join("\n");
-
-  alert(
-    "数据文件加载失败。\n\n" +
-    "请优先检查：\n" +
-    "1. data/io_orgs.csv 是否确实存在；\n" +
-    "2. 文件编码是否为 UTF-8；\n" +
-    "3. 表头是否为：中文名、外文名、机构属性、行动领域、设立年份、所在地、官网、微信公众号、LinkedIn、机构介绍、参考资料；\n" +
-    "4. 页面脚本是否全部成功加载。\n\n" +
-    "调试信息：\n" + debugText
-  );
 }
 
 async function init() {
