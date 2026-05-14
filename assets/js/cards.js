@@ -1,4 +1,4 @@
-const CSV_PATHS = ["data/io_orgs.csv"];
+const DATA_PATH = "assets/data/public/orgs_public.json";
 
 const FILTER_META = [
   { key: "attr", title: "机构属性", mountId: "filterAttr" },
