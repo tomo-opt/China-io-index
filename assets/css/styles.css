@@ -2431,10 +2431,10 @@ body {
 
   .guide-toc {
     position: fixed;
-    top: calc(var(--nav-height) + 40px);
+    top: calc(var(--nav-height) + 220px);
     left: max(24px, calc((100vw - 1180px) / 2 + 56px));
     width: 220px;
-    max-height: calc(100vh - var(--nav-height) - 96px);
+    max-height: calc(100vh - var(--nav-height) - 260px);
     overflow-y: auto;
     z-index: 10;
   }
