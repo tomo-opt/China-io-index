@@ -1,7 +1,7 @@
 const DATA_PATH = "assets/data/public/orgs_public.json";
 
 const FILTER_META = [
-  { key: "attr", title: "机构属性", mountId: "filterAttr" },
+  { key: "attr", title: "机构来源", mountId: "filterAttr" },
   { key: "cate", title: "行动领域", mountId: "filterCategory" },
   { key: "year", title: "设立年份", mountId: "filterYear" },
   { key: "city", title: "所在地", mountId: "filterCity" }
@@ -97,7 +97,7 @@ function getCardData(row) {
   return {
     cn: getField(row, ["中文名", "机构中文名", "name_zh"]),
     en: getField(row, ["外文名", "机构外文名", "name_en"]),
-    attr: getField(row, ["机构属性", "attribute"]),
+    attr: getField(row, ["机构来源", "attribute"]),
     cate: getField(row, ["行动领域", "第一细分类", "一级分类", "category_level_1"]),
     year: getField(row, ["设立年份", "year_founded", "founded_year"]),
     loc: getField(row, ["所在地", "所在省份+城市（细）", "所在省份+城市", "location_detail"]),
@@ -298,6 +298,21 @@ async function fetchPublicData(path) {
   return data;
 }
 
+async function checkSiteStatus() {
+  try {
+    const res = await fetch("assets/data/site_status.json", { cache: "no-store" });
+    if (!res.ok) return;
+
+    const status = await res.json();
+
+    if (status?.maintenance) {
+      alert(status.message || "网站数据正在更新，请稍后再访问。");
+    }
+  } catch (_) {
+    // 状态文件不存在或读取失败时，不影响正常访问
+  }
+}
+
 function buildFilterOptions() {
   const rows = rawData.map((row) => {
     const item = getCardData(row);
@@ -365,6 +380,18 @@ function renderFilterBlock(meta) {
   `;
 }
 
+function rememberCardFilterScroll(key) {
+  const panel = document.querySelector(`[data-filter-key="${key}"] .multi-select-panel`);
+  return panel ? panel.scrollTop : 0;
+}
+
+function restoreCardFilterScroll(key, scrollTop) {
+  requestAnimationFrame(() => {
+    const panel = document.querySelector(`[data-filter-key="${key}"] .multi-select-panel`);
+    if (panel) panel.scrollTop = scrollTop;
+  });
+}
+
 function renderAllFilters() {
   FILTER_META.forEach(renderFilterBlock);
 
@@ -381,6 +408,7 @@ function renderAllFilters() {
     input.addEventListener("change", () => {
       const key = input.getAttribute("data-filter-option");
       const value = input.value;
+      const scrollTop = rememberCardFilterScroll(key);
 
       if (input.checked) {
         state.selected[key].add(value);
@@ -391,6 +419,7 @@ function renderAllFilters() {
       currentPage = 1;
       filterData();
       renderAllFilters();
+      restoreCardFilterScroll(key, scrollTop);
       render();
     });
   });
@@ -559,7 +588,7 @@ function createCard(row) {
     </div>
 
     <div class="meta">
-      <div><strong>机构属性：</strong>${renderTagChips(item.attr, "attr")}</div>
+      <div><strong>机构来源：</strong>${renderTagChips(item.attr, "attr")}</div>
       <div><strong>行动领域：</strong>${renderTagChips(item.cate, "category")}</div>
       <div><strong>设立年份：</strong>${escapeHtml(item.year || "暂无")}</div>
       <div><strong>所在地：</strong>${escapeHtml(item.loc || "暂无")}</div>
@@ -597,7 +626,7 @@ function renderListView(rows) {
           </div>
 
           <div class="list-col list-col-attr">
-            <span class="list-head-label">机构属性</span>
+            <span class="list-head-label">机构来源</span>
             ${getSortIndicator("attr")}
           </div>
 
@@ -897,4 +926,4 @@ async function loadData() {
   }
 }
 
-loadData();
+checkSiteStatus().finally(loadData);
