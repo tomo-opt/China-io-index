@@ -2424,19 +2424,21 @@ body {
 }
 
 /* guide.html 页面目录固定增强：桌面端固定，移动端吸顶 */
+/* guide.html 页面目录固定增强：桌面端固定，移动端吸顶 */
 @media (min-width: 981px) {
   .guide-layout-pro {
     position: relative;
   }
 
   .guide-toc {
-    position: fixed;
-    top: calc(var(--nav-height) + 220px);
+    position: fixed !important;
+    top: 360px !important;
     left: max(24px, calc((100vw - 1180px) / 2 + 56px));
     width: 220px;
-    max-height: calc(100vh - var(--nav-height) - 260px);
+    max-height: calc(100vh - 400px);
     overflow-y: auto;
     z-index: 10;
+    padding-top: 0;
   }
 
   .guide-content-pro {
