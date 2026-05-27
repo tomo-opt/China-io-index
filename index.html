@@ -9,7 +9,11 @@
   <body>
     <header class="top-nav">
       <div class="top-nav-left">
-        <a class="brand brand-link" href="index.html">中国国际组织索引</a>
+        <a class="brand brand-link brand-bilingual" href="index.html">
+          <span class="brand-zh">中国国际组织索引</span>
+          <span class="brand-sep">|</span>
+          <span class="brand-en">China IO Index</span>
+        </a>
       </div>
 
       <div class="top-nav-right">
@@ -30,31 +34,39 @@
     </header>
 
     <main class="page-map">
-      <section class="search-panel" aria-label="搜索与筛选">
-        <div class="sidebar-card-title">关键词检索</div>
-        <div class="search-row">
-          <input
-            id="searchInput"
-            type="text"
-            placeholder="检索中文名、外文名、机构属性、行动领域、所在地、官网等"
-          />
-          <button id="resetBtn" type="button">重置</button>
+      <section id="searchPanel" class="search-panel search-panel-collapsed" aria-label="搜索与筛选">
+        <button id="searchPanelToggle" class="search-panel-toggle" type="button" aria-expanded="false">
+          <span>检索与筛选</span>
+          <span class="search-panel-toggle-hint">点击展开</span>
+          <span class="search-panel-toggle-icon">▾</span>
+        </button>
+
+        <div id="searchPanelBody" class="search-panel-body">
+          <div class="sidebar-card-title">关键词检索</div>
+          <div class="search-row">
+            <input
+              id="searchInput"
+              type="text"
+              placeholder="检索中文名、外文名、机构来源、行动领域、所在地、官网等"
+            />
+            <button id="resetBtn" type="button">重置</button>
+          </div>
+
+          <div class="sidebar-search-tip">支持任意字段模糊检索</div>
+
+          <div class="search-panel-divider"></div>
+
+          <div class="sidebar-card-title">条件筛选</div>
+          <div class="filters filters-multiselect">
+            <div id="mapFilterAttr" class="filter-slot"></div>
+            <div id="mapFilterCategory" class="filter-slot"></div>
+            <div id="mapFilterYear" class="filter-slot"></div>
+            <div id="mapFilterCity" class="filter-slot"></div>
+          </div>
+
+          <div class="tag-hint">可用筛选变量：机构来源 / 行动领域 / 设立年份 / 所在地；支持多选。</div>
+          <div id="searchResults" class="search-results hidden"></div>
         </div>
-
-        <div class="sidebar-search-tip">支持任意字段模糊检索</div>
-
-        <div class="search-panel-divider"></div>
-
-        <div class="sidebar-card-title">条件筛选</div>
-        <div class="filters filters-multiselect">
-          <div id="mapFilterAttr" class="filter-slot"></div>
-          <div id="mapFilterCategory" class="filter-slot"></div>
-          <div id="mapFilterYear" class="filter-slot"></div>
-          <div id="mapFilterCity" class="filter-slot"></div>
-        </div>
-
-        <div class="tag-hint">可用筛选变量：机构属性 / 行动领域 / 设立年份 / 所在地；支持多选。</div>
-        <div id="searchResults" class="search-results hidden"></div>
       </section>
 
       <section class="map-wrapper">
@@ -65,6 +77,24 @@
         <div class="map-note">图注：地图来源为中华人民共和国标准地图。当前版本暂纳入位于香港特别行政区、澳门特别行政区的联合国系统相关机构，暂不纳入台湾省的机构。</div>
       </section>
 
+      <aside id="mapStatsPanel" class="map-stats-panel" aria-label="地图统计信息">
+        <section class="map-stats-total">
+          <div class="map-stats-total-label">机构总数</div>
+          <div id="mapTotalCount" class="map-stats-total-number">--</div>
+          <div id="mapFilteredCount" class="map-stats-total-sub">当前筛选：--</div>
+        </section>
+
+        <section class="map-stats-card">
+          <div class="map-stats-card-title">行动领域统计</div>
+          <div id="categoryRingChart" class="ring-chart-box"></div>
+        </section>
+
+        <section class="map-stats-card">
+          <div class="map-stats-card-title">所在地统计</div>
+          <div id="locationRingChart" class="ring-chart-box"></div>
+        </section>
+      </aside>
+      
       <aside id="drawer" class="drawer">
         <div class="drawer-header">
           <h2 id="drawerTitle">点击地图城市查看机构</h2>
