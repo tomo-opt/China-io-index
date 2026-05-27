@@ -31,7 +31,7 @@ let records = [];
 let filtered = [];
 
 const MAP_FILTER_META = [
-  { key: "attr", title: "机构属性", mount: "mapFilterAttr" },
+  { key: "attr", title: "机构来源", mount: "mapFilterAttr" },
   { key: "category1", title: "行动领域", mount: "mapFilterCategory" },
   { key: "year", title: "设立年份", mount: "mapFilterYear" },
   { key: "location", title: "所在地", mount: "mapFilterCity" },
@@ -311,7 +311,7 @@ function normalize(row) {
   return {
     cn: getField(row, ["中文名"]),
     en: getField(row, ["外文名"]),
-    attr: getField(row, ["机构属性"]),
+    attr: getField(row, ["机构来源"]),
     category1: getField(row, ["行动领域"]),
     year: getField(row, ["设立年份"]),
     location: getField(row, ["所在地"]),
@@ -516,7 +516,7 @@ function renderCard(item) {
     <h3>${item.cn || "未命名机构"}</h3>
     <p class="sub">${item.en || "-"}</p>
     <div class="meta">
-      <div><strong>机构属性：</strong>${renderTagChips(item.attr, "attr")}</div>
+      <div><strong>机构来源：</strong>${renderTagChips(item.attr, "attr")}</div>
       <div><strong>行动领域：</strong>${renderTagChips(item.category1, "category")}</div>
       <div><strong>设立年份：</strong>${item.year || "暂无"}</div>
       <div><strong>所在地：</strong>${item.location || "暂无"}</div>
@@ -545,7 +545,7 @@ function renderDrawerFilters() {
   `;
 
   renderMultiSelectBlock({
-    title: "机构属性",
+    title: "机构来源",
     key: "attr",
     mountEl: document.getElementById("drawerFilterAttr"),
     stateObj: drawerFilterState,
@@ -585,11 +585,13 @@ function bindDrawerFilterPanelEvents() {
     input.onchange = () => {
       const key = input.getAttribute("data-ms-option").split(":")[1];
       const value = input.value;
+      const scrollTop = rememberOpenPanelScroll("drawer", key);
 
       if (input.checked) drawerFilterState.selected[key].add(value);
       else drawerFilterState.selected[key].delete(value);
 
       renderDrawerFilters();
+      restoreOpenPanelScroll("drawer", key, scrollTop);
       requestAnimationFrame(() => applyDrawerFilters());
     };
   });
@@ -712,7 +714,7 @@ function openDrawer(city, list) {
         <input
           id="drawerSearchInput"
           type="text"
-          placeholder="检索中文名、外文名、机构属性、行动领域、官网等"
+          placeholder="检索中文名、外文名、机构来源、行动领域、官网等"
           style="
             flex:1;
             min-width:0;
@@ -1452,6 +1454,24 @@ function updateFilterOptions() {
   bindMapFilterPanelEvents();
 }
 
+function rememberOpenPanelScroll(prefix, key) {
+  const panel = document.querySelector(
+    `[data-ms-prefix="${prefix}"][data-ms-key="${key}"] .multi-select-panel`
+  );
+
+  return panel ? panel.scrollTop : 0;
+}
+
+function restoreOpenPanelScroll(prefix, key, scrollTop) {
+  requestAnimationFrame(() => {
+    const panel = document.querySelector(
+      `[data-ms-prefix="${prefix}"][data-ms-key="${key}"] .multi-select-panel`
+    );
+
+    if (panel) panel.scrollTop = scrollTop;
+  });
+}
+
 function bindMapFilterPanelEvents() {
   document.querySelectorAll('[data-ms-trigger^="map:"]').forEach((btn) => {
     btn.onclick = (e) => {
@@ -1466,11 +1486,13 @@ function bindMapFilterPanelEvents() {
     input.onchange = () => {
       const key = input.getAttribute("data-ms-option").split(":")[1];
       const value = input.value;
+      const scrollTop = rememberOpenPanelScroll("map", key);
 
       if (input.checked) mapFilterState.selected[key].add(value);
       else mapFilterState.selected[key].delete(value);
 
       updateFilterOptions();
+      restoreOpenPanelScroll("map", key, scrollTop);
       requestAnimationFrame(() => applyFilters());
     };
   });
@@ -1504,6 +1526,111 @@ function matchesSearch(item, q) {
   return hay.includes(q.toLowerCase());
 }
 
+const STATS_COLORS = [
+  "#2563eb", "#16a34a", "#dc2626", "#d97706",
+  "#7c3aed", "#0891b2", "#db2777", "#475569"
+];
+
+function getProvinceFromLocation(location = "") {
+  const t = String(location || "").trim();
+
+  const direct = ["北京市", "上海市", "天津市", "重庆市", "香港特别行政区", "澳门特别行政区", "台湾省"];
+  for (const item of direct) {
+    if (t.includes(item.replace("市", "")) || t.includes(item)) return item;
+  }
+
+  const provinceMatch = t.match(/(.+?(省|自治区))/);
+  if (provinceMatch) return provinceMatch[1];
+
+  return normalizeCityName(t) || "未知";
+}
+
+function countBy(list, getter) {
+  const map = new Map();
+
+  list.forEach((item) => {
+    const raw = getter(item);
+    const values = Array.isArray(raw) ? raw : [raw];
+
+    values.forEach((value) => {
+      const key = String(value || "").trim();
+      if (!key) return;
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+  });
+
+  return [...map.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+}
+
+function renderRingChart(el, rows) {
+  if (!el) return;
+
+  const total = rows.reduce((sum, item) => sum + item.value, 0);
+
+  if (!total) {
+    el.innerHTML = `<div class="ring-chart-empty">暂无数据</div>`;
+    return;
+  }
+
+  const topRows = rows.slice(0, 6);
+  const otherValue = rows.slice(6).reduce((sum, item) => sum + item.value, 0);
+  const displayRows = otherValue > 0
+    ? [...topRows, { name: "其他", value: otherValue }]
+    : topRows;
+
+  let start = 0;
+  const gradientParts = displayRows.map((item, index) => {
+    const percent = item.value / total * 100;
+    const end = start + percent;
+    const color = STATS_COLORS[index % STATS_COLORS.length];
+    const part = `${color} ${start.toFixed(2)}% ${end.toFixed(2)}%`;
+    start = end;
+    return part;
+  });
+
+  el.innerHTML = `
+    <div class="ring-chart" style="background: conic-gradient(${gradientParts.join(", ")});">
+      <div class="ring-chart-inner">
+        <strong>${total}</strong>
+        <span>项</span>
+      </div>
+    </div>
+
+    <div class="ring-chart-legend">
+      ${displayRows.map((item, index) => {
+        const percent = total ? Math.round(item.value / total * 100) : 0;
+        const color = STATS_COLORS[index % STATS_COLORS.length];
+
+        return `
+          <div class="ring-legend-row">
+            <span class="ring-legend-dot" style="background:${color};"></span>
+            <span class="ring-legend-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+            <span class="ring-legend-value">${item.value} / ${percent}%</span>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function updateMapStats() {
+  const totalEl = document.getElementById("mapTotalCount");
+  const filteredEl = document.getElementById("mapFilteredCount");
+  const categoryEl = document.getElementById("categoryRingChart");
+  const locationEl = document.getElementById("locationRingChart");
+
+  if (totalEl) totalEl.textContent = records.length.toLocaleString("zh-CN");
+  if (filteredEl) filteredEl.textContent = `当前筛选：${filtered.length.toLocaleString("zh-CN")}`;
+
+  const categoryRows = countBy(filtered, (item) => splitTags(item.category1));
+  const locationRows = countBy(filtered, (item) => getProvinceFromLocation(item.location));
+
+  renderRingChart(categoryEl, categoryRows);
+  renderRingChart(locationEl, locationRows);
+}
+
 function applyFilters() {
   const q = ui.searchInput.value.trim();
 
@@ -1519,6 +1646,7 @@ function applyFilters() {
   renderCityDots(grouped);
   renderEchartsMap(grouped);
   renderSearchResults(q ? filtered.slice(0, 20) : []);
+  updateMapStats();
 }
 
 function getImageRenderBox(imgEl) {
@@ -1697,9 +1825,43 @@ async function fetchPublicData(path) {
   return data;
 }
 
+async function checkSiteStatus() {
+  try {
+    const res = await fetch("assets/data/site_status.json", { cache: "no-store" });
+    if (!res.ok) return;
+
+    const status = await res.json();
+
+    if (status?.maintenance) {
+      alert(status.message || "网站数据正在更新，请稍后再访问。");
+    }
+  } catch (_) {
+    // 状态文件不存在或读取失败时，不影响正常访问
+  }
+}
+
 function bindEvents() {
   if (window.__ioMapEventsBound) return;
   window.__ioMapEventsBound = true;
+
+  const searchPanel = document.getElementById("searchPanel");
+  const searchPanelToggle = document.getElementById("searchPanelToggle");
+
+  if (searchPanel && searchPanelToggle && !window.__searchPanelToggleBound) {
+    window.__searchPanelToggleBound = true;
+
+    searchPanelToggle.addEventListener("click", () => {
+      const isOpen = searchPanel.classList.toggle("open");
+      searchPanel.classList.toggle("search-panel-collapsed", !isOpen);
+      searchPanelToggle.setAttribute("aria-expanded", String(isOpen));
+
+      const hint = searchPanelToggle.querySelector(".search-panel-toggle-hint");
+      const icon = searchPanelToggle.querySelector(".search-panel-toggle-icon");
+
+      if (hint) hint.textContent = isOpen ? "点击收起" : "点击展开";
+      if (icon) icon.textContent = isOpen ? "▴" : "▾";
+    });
+  }
 
   ui.searchInput.addEventListener("input", applyFilters);
 
@@ -1826,4 +1988,4 @@ async function init() {
   await loadData();
 }
 
-init();
+checkSiteStatus().finally(init);
