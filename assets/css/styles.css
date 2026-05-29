@@ -1562,14 +1562,16 @@ body.calibration-mode .map-image-stage {
 }
 
 .site-footer-inner {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 16px;
-  font-size: 14px;
-  text-align: center;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 16px;
+    font-size: 14px;
+    text-align: center;
+
+    flex-wrap: wrap;
 }
 
 .site-footer-inner a {
