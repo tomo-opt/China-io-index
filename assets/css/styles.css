@@ -2534,3 +2534,31 @@ body {
     font-size: 8px;
   }
 }
+
+/* =========================
+   guide 页统计口径注释编号
+   ========================= */
+
+.guide-note-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.guide-note-list > li {
+  padding-left: 0;
+}
+
+.guide-note-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #eef4fc;
+  border: 1px solid #d7dfeb;
+  color: #0f1f3d;
+  font-size: 0.82em;
+  font-weight: 700;
+  white-space: nowrap;
+}
