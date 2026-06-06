@@ -1532,17 +1532,38 @@ const STATS_COLORS = [
 ];
 
 function getProvinceFromLocation(location = "") {
-  const t = String(location || "").trim();
+  const raw = String(location || "").trim();
+  const city = normalizeCityName(raw);
+  const t = city || raw;
 
-  const direct = ["北京市", "上海市", "天津市", "重庆市", "香港特别行政区", "澳门特别行政区", "台湾省"];
-  for (const item of direct) {
-    if (t.includes(item.replace("市", "")) || t.includes(item)) return item;
+  const directRegions = [
+    "北京市",
+    "上海市",
+    "天津市",
+    "重庆市",
+    "香港特别行政区",
+    "澳门特别行政区",
+    "台湾省"
+  ];
+
+  for (const item of directRegions) {
+    const shortName = item
+      .replace("市", "")
+      .replace("特别行政区", "")
+      .replace("省", "");
+
+    if (t.includes(item) || t.includes(shortName)) {
+      return item;
+    }
   }
 
-  const provinceMatch = t.match(/(.+?(省|自治区))/);
+  const provinceMatch = t.match(/^(.+?省)/);
   if (provinceMatch) return provinceMatch[1];
 
-  return normalizeCityName(t) || "未知";
+  const autonomousMatch = t.match(/^(.+?自治区)/);
+  if (autonomousMatch) return autonomousMatch[1];
+
+  return t || "未知";
 }
 
 function countBy(list, getter) {
